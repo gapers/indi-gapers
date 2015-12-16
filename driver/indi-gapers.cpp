@@ -11,6 +11,8 @@
 #include <memory>
 #include "indi-gapers.h"
 #include "indicom.h"
+#include <inditelescope.h>
+
 const float SIDRATE  = 0.004178;                        /* sidereal rate, degrees/s */
 const int   SLEW_RATE =         1;                              /* slew rate, degrees/s */
 const int   POLLMS       =      250;                            /* poll period, ms */
@@ -23,10 +25,10 @@ void ISInit()
  static int isInit=0;
  if (isInit)
   return;
- if (simpleScope.get() == 0)
+ if (gapersScope.get() == 0)
  {
      isInit = 1;
-     simpleScope.reset(new GapersScope());
+     gapersScope.reset(new GapersScope());
  }
 }
 /**************************************************************************************
@@ -76,19 +78,21 @@ void ISSnoopDevice (XMLEle *root)
 {
   INDI_UNUSED(root);
 }
+
 GapersScope::GapersScope()
 {
     currentRA  = 0;
     currentDEC = 90;
     // We add an additional debug level so we can log verbose scope status
     DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
-    TelescopeCapability cap;
-    cap.canPark = false;
-    cap.canSync = false;
-    cap.canAbort = true;
-    cap.hasLocation = false;
-    cap.hasTime = true;
-    SetTelescopeCapability(&cap);
+    capability = TELESCOPE_CAN_SYNC;
+    // TelescopeCapability cap;
+    // cap.canPark = false;
+    // cap.canSync = true;
+    // cap.canAbort = false;
+    // cap.hasLocation = false;
+    // cap.hasTime = false;
+    // SetTelescopeCapability(&cap);
 }
 /**************************************************************************************
 ** We init our properties here. The only thing we want to init are the Debug controls

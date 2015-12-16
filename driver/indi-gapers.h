@@ -8,7 +8,7 @@
    Refer to README, which contains instruction on how to build this driver, and use it
    with an INDI-compatible client.
 */
-#include "indibase/inditelescope.h"
+#include <inditelescope.h>
 class GapersScope : public INDI::Telescope
 {
 public:
