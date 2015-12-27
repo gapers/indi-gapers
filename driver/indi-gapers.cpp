@@ -14,7 +14,7 @@
 #include <inditelescope.h>
 
 const float SIDRATE  = 0.004178;                        /* sidereal rate, degrees/s */
-const int   SLEW_RATE =         1;                              /* slew rate, degrees/s */
+const int   SLEW_RATE =         15;                              /* slew rate, degrees/s */
 const int   POLLMS       =      250;                            /* poll period, ms */
 std::auto_ptr<GapersScope> gapersScope(0);
 /**************************************************************************************
@@ -140,10 +140,30 @@ bool GapersScope::Goto(double ra, double dec)
     // Parse the RA/DEC into strings
     fs_sexa(RAStr, targetRA, 2, 3600);
     fs_sexa(DecStr, targetDEC, 2, 3600);
+
+    double raDist, decDist;
+    long raSteps, decSteps;
+    raDist = rangeDistance((targetRA - currentRA) * 15.0);
+    DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f", currentRA, targetRA);
+
+    raSteps = raDist * 220088.2;
+    double raSlewTime;
+    raSteps = CorrectRA(raSteps, raSlewTime);
+
+    decDist = rangeDistance(targetDEC - currentDEC);
+    decSteps = decDist * 192000.0;
+
     // Mark state as slewing
     TrackState = SCOPE_SLEWING;
     // Inform client we are slewing to a new position
     DEBUGF(INDI::Logger::DBG_SESSION, "Slewing to RA: %s - DEC: %s", RAStr, DecStr);
+
+    char raDistStr[64];
+    fs_sexa(raDistStr, raDist, 2, 3600);
+    DEBUGF(INDI::Logger::DBG_SESSION, "RA dist: %s RA steps (corrected): %ld", raDistStr, raSteps);
+    char decDistStr[64];
+    fs_sexa(decDistStr, decDist, 2, 3600);
+    DEBUGF(INDI::Logger::DBG_SESSION, "DEC dist: %s DEC steps (uncorrected): %ld", decDistStr, decSteps);
     // Success!
     return true;
 }
@@ -226,4 +246,53 @@ bool GapersScope::ReadScopeStatus()
     DEBUGF(DBG_SCOPE, "Current RA: %s Current DEC: %s", RAStr, DecStr );
     NewRaDec(currentRA, currentDEC);
     return true;
+}
+
+long GapersScope::CorrectRA( long st, double & tm )
+{
+  // Ricostruzione del calcolo:
+  // Si considerano i passi necessari per portarsi nella nuova posizione (st)
+  // Si calcola il tempo totale necessario per coprire la distanza angolare
+  // richiesta, alla velocità di puntamento meno la velocità siderale e togliendo
+  // infine il tempo necessario per coprire le rampe di accelerazione e
+  // decellerazione del motore (calcolo che non mi è chiarissimo)
+  // I passi totali vengono quindi corretti aggiungendo i passi necessari
+  // a coprire il moto siderale per i tempi di rampa più il tempo di movimento
+  // dell'asse : rtn
+
+	const double vs = 919.456;	 // Velocità siderale motore (impulsi al sec.)
+	double rtn;
+	double tvp;
+	// Tempo (sec) totale di rampa (5x perchè la rampa è moltiplicata per 5)
+	double tr = 5.0 * ((st > 0L) ? 0.452 : -0.452);
+	// Velocità massima di puntamento
+	double vp = ((st > 0L) ? 220000.0 : -220000.0);
+	// Numero passi richiesti per spostamento
+	double steps = (double)((st > 0L) ? st : -st);
+
+	// Tempo (sec) di pemanenza a velocità massima
+	tvp = ( steps / (vp - vs)) - tr;
+
+	// printf( "Total time: %7.3lf secs\n", (2.0 * tr + tvp));
+	tm = fabs( 2.0 * tr + tvp);	 // Tempo (sec) totale per spostamento asse
+	// m_RAslwTm = (long)((2.0 * tr + tvp) * 1000); // Tempo (ms) totale per spostamento asse
+	// m_RAslwTm = (m_RAslwTm > 0L) ? m_RAslwTm : -m_RAslwTm; // Correzione direzione
+
+	// Numero passi corretto per velocità siderale
+	rtn = steps + (2 * tr * vs + tvp * vs);
+	// Correzione direzione
+	return (long)((st > 0L) ? rtn : -rtn);
+}
+
+double GapersScope::rangeDistance( double angle) {
+  /*
+   * Riporta il range di un angolo all'interno di +/-180 gradi
+   * da utilizzare nel calcolo delle differenze angolari per
+   * gli spostamenti nelle due direzioni in modo da utilizzare
+   * sempre il percorso angolare più breve.
+   */
+  double r = angle;
+  while (r < -180.0) r += 360.0;
+  while (r > 180.0) r -= 360.0;
+  return r;
 }

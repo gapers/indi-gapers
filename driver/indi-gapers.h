@@ -29,5 +29,9 @@ private:
     double targetRA;
     double targetDEC;
     unsigned int DBG_SCOPE;
+
+    long CorrectRA( long, double &);
+    double rangeDistance( double );
+
 };
 #endif // GAPERSSCOPE_H
