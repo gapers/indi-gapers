@@ -32,6 +32,6 @@ private:
 
     long CorrectRA( long, double &);
     double rangeDistance( double );
-
+    long ComputeStepsRA( double );
 };
 #endif // GAPERSSCOPE_H
