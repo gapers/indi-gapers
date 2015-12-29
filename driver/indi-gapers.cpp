@@ -279,17 +279,17 @@ long GapersScope::CorrectRA( long st, double & tm )
 	// m_RAslwTm = (m_RAslwTm > 0L) ? m_RAslwTm : -m_RAslwTm; // Correzione direzione
 
 	// Numero passi corretto per velocità siderale
-	rtn = steps + (2 * tr * vs + tvp * vs);
+  rtn = steps + (2 * tr * vs + tvp * vs);
 	// Correzione direzione
 	return (long)((st > 0L) ? rtn : -rtn);
 }
 
-long GapersScope::ComputeStepsRA( double distance) {
-  // Durante lo spostamento in ascensione retta occorre compensare il moto 
+long GapersScope::ComputeStepsRA( double distance ) {
+  // Durante lo spostamento in ascensione retta occorre compensare il moto
   // siderale che si manifesta nel tempo necessario al movimento dell'asse.
 
   const double vs = 919.456; // Velocità moto siderale in passi per secondo
-  const double vp = 220000;  // Velocità movimento asse in passi per secondo
+  const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
   const double spd = 220088.2; // Passi motore per grado di spostamento asse
 
   double tm = 0; // Tempo necessario allo spostamento dell'asse
@@ -308,12 +308,14 @@ long GapersScope::ComputeStepsRA( double distance) {
     // la correzione da applicare per il moto siderale considerando il tempo
     // necessario a completare le rampe sommato a quello necessario per
     // compiere i rimanenti passi a velocità di regime
-    steps -= 500000.0;
     // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
     // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
     // rampa lineare il valore dovrebbe essere accurato.
-    tm = (steps / vp) + ( 500000 / ((220000-200)/2) );
-    steps += 500000.0; // Sommiamo indietro i passi necessari per le rampe ai fini del calcolo del valore di ritorno
+    const double tr = 500000.0 / ((220000.0-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
+    tm = ((steps - 500000.0) / vp) + tr;
+  } else {
+    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : 500000 (passi per compiere entrambe le rampe)
+    tm = (steps * tr) / 500000.0;
   }
   // La correzione applicata è pari al tempo totale di spostamento moltiplicato
   // per la velocità siderale in passi al secondo. NB: l'algoritmo non è preciso
@@ -321,7 +323,7 @@ long GapersScope::ComputeStepsRA( double distance) {
   // necessario al movimento, ma l'errore così introdotto dovrebbe essere
   // abbastanza piccolo da essere trascurabile.
   correction = tm * vs;
-  return static_cast<long>(steps + correction + 0.5); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
+  return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
 }
 
 double GapersScope::rangeDistance( double angle) {
