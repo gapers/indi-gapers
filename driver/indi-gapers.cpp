@@ -344,7 +344,18 @@ double GapersScope::rangeDistance( double angle) {
 ***************************************************************************************/
 bool GapersScope::Sync(double ra, double dec)
 {
+  char RAStr[64], DecStr[64];
+  // Parse the RA/DEC into strings
+  fs_sexa(RAStr, ra, 2, 3600);
+  fs_sexa(DecStr, dec, 2, 3600);
+
+  // Inform client we are slewing to a new position
+  DEBUGF(INDI::Logger::DBG_SESSION, "Syncing to RA: %s - DEC: %s", RAStr, DecStr);
+
+  // Mark state as slewing
+  TrackState = SCOPE_TRACKING;
   currentRA=ra;
   currentDEC=dec;
+
   return true;
 }
