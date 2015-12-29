@@ -22,6 +22,7 @@ protected:
     // Telescoe specific functions
     bool ReadScopeStatus();
     bool Goto(double,double);
+    bool Sync(double,double);
     bool Abort();
 private:
     double currentRA;

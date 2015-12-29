@@ -302,16 +302,17 @@ long GapersScope::ComputeStepsRA( double distance ) {
   int direction = ( distance > 0 ? 1 : -1);
   double steps = fabs( distance ) * spd;
 
+  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
+  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
+  // rampa lineare il valore dovrebbe essere accurato.
+  const double tr = 500000.0 / ((220000.0-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
+
   if ( steps > 500000.0 ) {
     // Il movimento richiesto è superiore ai passi necessari per completare
     // le rampe di accelerazione e decellerazione dei motori. Viene calcolata
     // la correzione da applicare per il moto siderale considerando il tempo
     // necessario a completare le rampe sommato a quello necessario per
     // compiere i rimanenti passi a velocità di regime
-    // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
-    // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
-    // rampa lineare il valore dovrebbe essere accurato.
-    const double tr = 500000.0 / ((220000.0-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
     tm = ((steps - 500000.0) / vp) + tr;
   } else {
     // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : 500000 (passi per compiere entrambe le rampe)
@@ -337,4 +338,13 @@ double GapersScope::rangeDistance( double angle) {
   while (r < -180.0) r += 360.0;
   while (r > 180.0) r -= 360.0;
   return r;
+}
+/**************************************************************************************
+** Client is asking us to sync to a new position
+***************************************************************************************/
+bool GapersScope::Sync(double ra, double dec)
+{
+  currentRA=ra;
+  currentDEC=dec;
+  return true;
 }
