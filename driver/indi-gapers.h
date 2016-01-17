@@ -31,8 +31,21 @@ private:
     double targetDEC;
     unsigned int DBG_SCOPE;
 
+    // Properties representing encoder steps and stepper axle rounds used in
+    // axis movement. RA and DEC share the same structure for tidyness
+    structure AxisMovementParameters {
+      double angle;
+      long steps;
+      long startQuote;
+      long endQuote;
+      long rounds;
+    };
+    AxisMovementParameters raMovement, decMovement;
+
     long CorrectRA( long, double &);
     double rangeDistance( double );
     long ComputeStepsRA( double );
+    bool ComputeLongMove( );
+    bool _roundCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
 };
 #endif // GAPERSSCOPE_H

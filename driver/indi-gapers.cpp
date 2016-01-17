@@ -359,3 +359,84 @@ bool GapersScope::Sync(double ra, double dec)
 
   return true;
 }
+
+bool GapersScope::_roundCalc(long steps, long &m_sq, long &m_eq, long &m_giri) {
+  // La quota rappresentabile dagli encoder dello stepper dei motori è limitato al
+  // range -8388608 <--> +8388607. Questo limita il movimento basato sulla
+  // differenza di quota a 2^23 passi, pari a circa 38 gradi.
+  // Qualora sia necessario effettuare uno spostamento maggiore, occorre
+  // utilizzare una procedura alternativa: si calcola il movimento in giri
+  // completi del motore, che viene eseguito superando l'overflow della quota
+  // dell'encoder, che ricomincia a contare ripartendo dal valore più basso
+  // rappresentabile. Al termine del movimento "per giri", ci si posiziona
+  // alla quota necessaria per ottenere lo spostamento preciso richiesto.
+  // Siccome il movimento "per giri" è meno preciso di quello per passi regolato
+  // dall'encoder, è necessario fermarlo prima di aver compiuto il massimo
+  // movimento possibile, altrimenti si rischia di trovarsi oltre la quota di
+  // encoder desiderata, costringendo il motore ad invertire il senso di marcia.
+  // I due movimenti sono distinti e questo non sarebbe eccessivamente
+  // probklematico ma nel caso del movimento in ascensione retta ciò
+  // potrebbe rendere meno affidabile la correzione da applicare per compensare
+  // il moto siderale apparente. Viene pertanto usato nel calcolo un arbitrario
+  // "valore di sicurezza" pari ad 80 giri completi del motore, ovvero circa
+  // 1.024.000 passi (4 gradi circa di movimento). Questo valore viene sottratto
+  // al numero di passi richiesti per lo spostamento in modo da fermarsi per
+  // tempo prima di passare al movimento per passi.
+  // Nella procedura di movimento per giri gestita dal PLC vanno comunicati la
+  // quota iniziale da impostare sull'encoder, la quota finale da raggiungere
+  // ed il numero di giri da compiere. La quota finale viene calcolata
+  // considerando il numero totale di passi da compiere e ricominciando a
+  // contare dal limite inferiore qualora si oltrepassi il limite superiore
+  // rappresentabile dall'encoder (gestione dell'overflow). Nel caso in cui il
+  // calcolo porti ad una quota finale di valore pari a 0, quota iniziale e
+  // finale vengono aumentati di un valore arbitrario (100). Il valore 0 non
+  // è infatti ammesso nei parametri da passare al PLC nella richiesta per
+  // avviare questa procedura.
+
+  const long qrange = 8388608+8388608; // range of stepper quota values (from -8388608 to +8388607)
+	const long qsafe = 80*12800; // safe quota equivalent of 80 revolutions
+
+	m_sq=0;
+	m_eq=0;
+
+	if (abs(steps) < qsafe) {
+    // Sanity check: questa procedura dovrebbe essere utilizzata soltanto per
+    // spostamenti superiori a 38 gradi, 2^23 passi. Utilizzarla per movimenti
+    // più ridotti non è comunque un problema fino a che si sta sopra alla
+    // quota di sicurezza utilizzata per il calcolo dei giri, 1 milione di
+    // passi ovvero circa 4 gradi.
+    // TODO: gestione dell'errore qualora venga richiesto un movimento troppo
+    // piccolo
+		//    error("lo spostamento lungo deve essere usato solo per movimenti > 1<<23 passi.");
+		return;
+	}
+
+	if (steps > 0) {
+		// steps are positive, clockwise movement)
+		m_sq = -8388608;
+		m_eq = (steps % qrange)+m_sq;
+		m_giri = ((steps - qsafe) / 12800) + 1;
+		if ( m_eq < (m_sq + qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
+			m_sq += qsafe;
+			m_eq += qsafe;
+		}
+		// check for a nasty race condition in plc program
+		if (m_eq == 0) {
+			m_sq += 100;
+			m_eq = 100;
+		}
+	} else { // steps are negative (counterclockwise movement)
+		m_sq = 8388607;
+		m_eq = (steps % qrange)+m_sq;
+		m_giri = ((steps + qsafe) / 12800) -1;
+		if ( m_eq > (m_sq - qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
+			m_sq -= qsafe;
+			m_eq -= qsafe;
+		}
+		// check for a nasty race condition in plc program
+		if (m_eq == 0) {
+			m_sq -= 100;
+			m_eq = -100;
+		}
+	}
+}
