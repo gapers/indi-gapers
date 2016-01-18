@@ -33,7 +33,7 @@ private:
 
     // Properties representing encoder steps and stepper axle rounds used in
     // axis movement. RA and DEC share the same structure for tidyness
-    structure AxisMovementParameters {
+    typedef struct AxisMovementParameters {
       double angle;
       long steps;
       long startQuote;

@@ -85,7 +85,8 @@ GapersScope::GapersScope()
     currentDEC = 90;
     // We add an additional debug level so we can log verbose scope status
     DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
-    capability = TELESCOPE_CAN_SYNC;
+    // capability = TELESCOPE_CAN_SYNC;
+    SetTelescopeCapability(TELESCOPE_CAN_SYNC, 0); // Telescope can sync and has a single slew rate
     // TelescopeCapability cap;
     // cap.canPark = false;
     // cap.canSync = true;
@@ -144,7 +145,7 @@ bool GapersScope::Goto(double ra, double dec)
     double raDist, decDist;
     long raSteps, decSteps;
     raDist = rangeDistance((targetRA - currentRA) * 15.0);
-    DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f", currentRA, targetRA);
+    DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
 
     raSteps = raDist * 220088.2;
     double raSlewTime;
@@ -352,6 +353,8 @@ bool GapersScope::Sync(double ra, double dec)
   // Inform client we are slewing to a new position
   DEBUGF(INDI::Logger::DBG_SESSION, "Syncing to RA: %s - DEC: %s", RAStr, DecStr);
 
+  currentRA = ra;
+  currentDEC = dec;
   NewRaDec(ra,dec);
   // Mark state as slewing
   TrackState = SCOPE_TRACKING;
@@ -407,7 +410,7 @@ bool GapersScope::_roundCalc(long steps, long &m_sq, long &m_eq, long &m_giri) {
     // TODO: gestione dell'errore qualora venga richiesto un movimento troppo
     // piccolo
 		//    error("lo spostamento lungo deve essere usato solo per movimenti > 1<<23 passi.");
-		return;
+		return false;
 	}
 
 	if (steps > 0) {
