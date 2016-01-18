@@ -352,10 +352,9 @@ bool GapersScope::Sync(double ra, double dec)
   // Inform client we are slewing to a new position
   DEBUGF(INDI::Logger::DBG_SESSION, "Syncing to RA: %s - DEC: %s", RAStr, DecStr);
 
+  NewRaDec(ra,dec);
   // Mark state as slewing
   TrackState = SCOPE_TRACKING;
-  currentRA=ra;
-  currentDEC=dec;
 
   return true;
 }
