@@ -44,7 +44,7 @@ private:
 
     long CorrectRA( long, double &);
     double rangeDistance( double );
-    long ComputeStepsRA( double );
+    bool _setMoveDataRA( double );
     bool ComputeLongMove( );
     bool _roundCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
 };

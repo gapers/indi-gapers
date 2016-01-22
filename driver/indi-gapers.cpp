@@ -144,12 +144,19 @@ bool GapersScope::Goto(double ra, double dec)
 
     double raDist, decDist;
     long raSteps, decSteps;
+
+    // Find angular distance between current and target position
+    // Distance is then expressed in range -180/180 degrees (short path)
     raDist = rangeDistance((targetRA - currentRA) * 15.0);
     DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
 
+    // Update movement data for RA (also accounting for sidereal motion )
     raSteps = raDist * 220088.2;
     double raSlewTime;
-    raSteps = CorrectRA(raSteps, raSlewTime);
+    if (! _setMoveDataRA(raDist)) {
+      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
+      return false;
+    };
 
     decDist = rangeDistance(targetDEC - currentDEC);
     decSteps = decDist * 192000.0;
@@ -260,7 +267,6 @@ long GapersScope::CorrectRA( long st, double & tm )
   // I passi totali vengono quindi corretti aggiungendo i passi necessari
   // a coprire il moto siderale per i tempi di rampa più il tempo di movimento
   // dell'asse : rtn
-
 	const double vs = 919.456;	 // Velocità siderale motore (impulsi al sec.)
 	double rtn;
 	double tvp;
@@ -285,14 +291,21 @@ long GapersScope::CorrectRA( long st, double & tm )
 	return (long)((st > 0L) ? rtn : -rtn);
 }
 
-long GapersScope::ComputeStepsRA( double distance ) {
+bool GapersScope::_setMoveDataRA( double distance ) {
   // Durante lo spostamento in ascensione retta occorre compensare il moto
   // siderale che si manifesta nel tempo necessario al movimento dell'asse.
 
+  // Costanti usate nel calcolo
   const double vs = 919.456; // Velocità moto siderale in passi per secondo
   const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
   const double spd = 220088.2; // Passi motore per grado di spostamento asse
+  const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
+  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
+  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
+  // rampa lineare il valore dovrebbe essere accurato.
+  const double tr = rs / ((vp-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
 
+  // Variabili d'appoggio
   double tm = 0; // Tempo necessario allo spostamento dell'asse
   double correction = 0; // Passi necessari a compensare il moto siderale occorso durante lo spostamento
 
@@ -303,21 +316,16 @@ long GapersScope::ComputeStepsRA( double distance ) {
   int direction = ( distance > 0 ? 1 : -1);
   double steps = fabs( distance ) * spd;
 
-  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
-  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
-  // rampa lineare il valore dovrebbe essere accurato.
-  const double tr = 500000.0 / ((220000.0-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
-
-  if ( steps > 500000.0 ) {
+  if ( steps > rs ) {
     // Il movimento richiesto è superiore ai passi necessari per completare
     // le rampe di accelerazione e decellerazione dei motori. Viene calcolata
     // la correzione da applicare per il moto siderale considerando il tempo
     // necessario a completare le rampe sommato a quello necessario per
     // compiere i rimanenti passi a velocità di regime
-    tm = ((steps - 500000.0) / vp) + tr;
+    tm = ((steps - rs) / vp) + tr;
   } else {
-    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : 500000 (passi per compiere entrambe le rampe)
-    tm = (steps * tr) / 500000.0;
+    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : rs (passi per compiere entrambe le rampe)
+    tm = (steps * tr) / rs;
   }
   // La correzione applicata è pari al tempo totale di spostamento moltiplicato
   // per la velocità siderale in passi al secondo. NB: l'algoritmo non è preciso
@@ -325,7 +333,9 @@ long GapersScope::ComputeStepsRA( double distance ) {
   // necessario al movimento, ma l'errore così introdotto dovrebbe essere
   // abbastanza piccolo da essere trascurabile.
   correction = tm * vs;
-  return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
+  // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
+  // TODO: memorizzare i dati necessari al movimento nelle apposite proprietà della classe
+  return true;
 }
 
 double GapersScope::rangeDistance( double angle) {
