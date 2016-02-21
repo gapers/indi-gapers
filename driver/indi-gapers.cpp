@@ -143,7 +143,7 @@ bool GapersScope::Goto(double ra, double dec)
     fs_sexa(DecStr, targetDEC, 2, 3600);
 
     double raDist, decDist;
-    long raSteps, decSteps;
+    // long raSteps, decSteps;
 
     // Find angular distance between current and target position
     // Distance is then expressed in range -180/180 degrees (short path)
@@ -151,15 +151,20 @@ bool GapersScope::Goto(double ra, double dec)
     DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
 
     // Update movement data for RA (also accounting for sidereal motion )
-    raSteps = raDist * 220088.2;
-    double raSlewTime;
+    // raSteps = raDist * 220088.2;
+    // double raSlewTime;
     if (! _setMoveDataRA(raDist)) {
       DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
       return false;
     };
 
     decDist = rangeDistance(targetDEC - currentDEC);
-    decSteps = decDist * 192000.0;
+    // decSteps = decDist * 192000.0;
+    if (! _setMoveDataDEC(decDist)) {
+      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
+      return false;
+    };
+
 
     // Mark state as slewing
     TrackState = SCOPE_SLEWING;
@@ -168,10 +173,10 @@ bool GapersScope::Goto(double ra, double dec)
 
     char raDistStr[64];
     fs_sexa(raDistStr, raDist, 2, 3600);
-    DEBUGF(INDI::Logger::DBG_SESSION, "RA dist: %s RA steps (corrected): %ld", raDistStr, raSteps);
+    DEBUGF(INDI::Logger::DBG_SESSION, "RA dist: %s RA steps (corrected): %ld", raDistStr, raMovement.steps);
     char decDistStr[64];
     fs_sexa(decDistStr, decDist, 2, 3600);
-    DEBUGF(INDI::Logger::DBG_SESSION, "DEC dist: %s DEC steps (uncorrected): %ld", decDistStr, decSteps);
+    DEBUGF(INDI::Logger::DBG_SESSION, "DEC dist: %s DEC steps (uncorrected): %ld", decDistStr, decMovement.steps);
     // Success!
     return true;
 }
@@ -335,8 +340,66 @@ bool GapersScope::_setMoveDataRA( double distance ) {
   correction = tm * vs;
   // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
   // TODO: memorizzare i dati necessari al movimento nelle apposite proprietà della classe
-  return true;
+  raMovement.steps = static_cast<long>((steps+0.5) * direction + correction );
+  raMovement.startQuote = 0;
+  raMovement.endQuote = 0;
+  raMovement.rotations = 0;
+  if (raMovement.steps > 80*12800) {
+    return _rotationsCalc(raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
+  } else {
+    raMovement.time = raMovement.steps / 220000.0;
+    return true;
+  }
 }
+
+bool GapersScope::_setMoveDataDEC( double distance ) {
+  // Costanti usate nel calcolo
+  // const double vs = 919.456; // Velocità moto siderale in passi per secondo
+  const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
+  const double spd = 192000.0; // Passi motore per grado di spostamento asse
+  const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
+  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
+  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
+  // rampa lineare il valore dovrebbe essere accurato.
+  const double tr = rs / ((vp-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
+
+  // Variabili d'appoggio
+  double tm = 0; // Tempo necessario allo spostamento dell'asse
+
+  // La componente del moto siderale è sempre positiva (da est ad ovest),
+  // pertanto consideriamo il valore assoluto del numero di passi necessari
+  // per lo spostamento, memorizzando la direzione per potere alla fine
+  // effettuare la correzione nella giusta direzione.
+  int direction = ( distance > 0 ? 1 : -1);
+  double steps = fabs( distance ) * spd;
+
+  if ( steps > rs ) {
+    // Il movimento richiesto è superiore ai passi necessari per completare
+    // le rampe di accelerazione e decellerazione dei motori. Viene calcolata
+    // la correzione da applicare per il moto siderale considerando il tempo
+    // necessario a completare le rampe sommato a quello necessario per
+    // compiere i rimanenti passi a velocità di regime
+    tm = ((steps - rs) / vp) + tr;
+  } else {
+    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : rs (passi per compiere entrambe le rampe)
+    tm = (steps * tr) / rs;
+  }
+  // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
+  // TODO: memorizzare i dati necessari al movimento nelle apposite proprietà della classe
+  decMovement.angle = distance;
+  decMovement.steps = static_cast<long>((steps+0.5) * direction );
+  decMovement.startQuote = 0;
+  decMovement.endQuote = 0;
+  decMovement.rotations = 0;
+  decMovement.time = tm;
+  if (decMovement.steps > 80*12800) {
+    return _rotationsCalc(decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
+  } else {
+    decMovement.time = decMovement.steps / 220000.0;
+    return true;
+  }
+}
+
 
 double GapersScope::rangeDistance( double angle) {
   /*
@@ -372,7 +435,7 @@ bool GapersScope::Sync(double ra, double dec)
   return true;
 }
 
-bool GapersScope::_roundCalc(long steps, long &m_sq, long &m_eq, long &m_giri) {
+bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri) {
   // La quota rappresentabile dagli encoder dello stepper dei motori è limitato al
   // range -8388608 <--> +8388607. Questo limita il movimento basato sulla
   // differenza di quota a 2^23 passi, pari a circa 38 gradi.
@@ -451,4 +514,5 @@ bool GapersScope::_roundCalc(long steps, long &m_sq, long &m_eq, long &m_giri) {
 			m_eq = -100;
 		}
 	}
+  return true;
 }

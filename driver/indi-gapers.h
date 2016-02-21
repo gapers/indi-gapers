@@ -33,19 +33,21 @@ private:
 
     // Properties representing encoder steps and stepper axle rounds used in
     // axis movement. RA and DEC share the same structure for tidyness
-    typedef struct AxisMovementParameters {
+    struct AxisMovementParameters {
       double angle;
-      long steps;
-      long startQuote;
-      long endQuote;
-      long rounds;
+      long steps;       // motor steps
+      long startQuote;  // encoder starting quote
+      long endQuote;    // encoder ending quote
+      long rotations;   // motor spindle spins for movements > 20 degrees
+      double time;      // time necessary for axis movement
     };
     AxisMovementParameters raMovement, decMovement;
 
     long CorrectRA( long, double &);
     double rangeDistance( double );
     bool _setMoveDataRA( double );
-    bool ComputeLongMove( );
-    bool _roundCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
+    bool _setMoveDataDEC( double );
+    // bool ComputeLongMove( );
+    bool _rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
 };
 #endif // GAPERSSCOPE_H
