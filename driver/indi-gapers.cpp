@@ -165,6 +165,8 @@ bool GapersScope::Goto(double ra, double dec)
       return false;
     };
 
+    // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
+    movementStart = time(NULL) + 5;
 
     // Mark state as slewing
     TrackState = SCOPE_SLEWING;
@@ -211,43 +213,67 @@ bool GapersScope::ReadScopeStatus()
     switch (TrackState)
     {
     case SCOPE_SLEWING:
-        // Wait until we are "locked" into positon for both RA & DEC axis
-        nlocked = 0;
-        // Calculate diff in RA
-        dx = targetRA - currentRA;
-        // If diff is very small, i.e. smaller than how much we changed since last time, then we reached target RA.
-        if (fabs(dx)*15. <= da_ra)
-        {
-            currentRA = targetRA;
-            nlocked++;
+        time_t currentTime;
+        time(&currentTime);
+        double offset;
+        double elapsed;
+        elapsed = difftime(currentTime, movementStart);
+        if (elapsed > 0) {
+          // interpolate RA position
+          if (elapsed < raMovement.time) {
+            offset = ( raMovement.angle * elapsed ) / raMovement.time;
+            currentRA = targetRA - ((raMovement.angle - offset)/15.0);
+          }
+          if (elapsed < decMovement.time) {
+            offset = ( decMovement.angle * elapsed ) / decMovement.time;
+            currentDEC = targetDEC - ( decMovement.angle - offset );
+          }
         }
-        // Otherwise, increase RA
-        else if (dx > 0)
-            currentRA += da_ra/15.;
-        // Otherwise, decrease RA
-        else
-            currentRA -= da_ra/15.;
-        // Calculate diff in DEC
-        dy = targetDEC - currentDEC;
-        // If diff is very small, i.e. smaller than how much we changed since last time, then we reached target DEC.
-        if (fabs(dy) <= da_dec)
-        {
-            currentDEC = targetDEC;
-            nlocked++;
+        if ((elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+          currentRA = targetRA;
+          currentDEC = targetDEC;
+          // Let's set state to TRACKING
+          TrackState = SCOPE_TRACKING;
+          DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
         }
-        // Otherwise, increase DEC
-        else if (dy > 0)
-          currentDEC += da_dec;
-        // Otherwise, decrease DEC
-        else
-          currentDEC -= da_dec;
-        // Let's check if we recahed position for both RA/DEC
-        if (nlocked == 2)
-        {
-            // Let's set state to TRACKING
-            TrackState = SCOPE_TRACKING;
-            DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-        }
+
+        // // Wait until we are "locked" into positon for both RA & DEC axis
+        // nlocked = 0;
+        // // Calculate diff in RA
+        // dx = targetRA - currentRA;
+        // // If diff is very small, i.e. smaller than how much we changed since last time, then we reached target RA.
+        // if (fabs(dx)*15. <= da_ra)
+        // {
+        //     currentRA = targetRA;
+        //     nlocked++;
+        // }
+        // // Otherwise, increase RA
+        // else if (dx > 0)
+        //     currentRA += da_ra/15.;
+        // // Otherwise, decrease RA
+        // else
+        //     currentRA -= da_ra/15.;
+        // // Calculate diff in DEC
+        // dy = targetDEC - currentDEC;
+        // // If diff is very small, i.e. smaller than how much we changed since last time, then we reached target DEC.
+        // if (fabs(dy) <= da_dec)
+        // {
+        //     currentDEC = targetDEC;
+        //     nlocked++;
+        // }
+        // // Otherwise, increase DEC
+        // else if (dy > 0)
+        //   currentDEC += da_dec;
+        // // Otherwise, decrease DEC
+        // else
+        //   currentDEC -= da_dec;
+        // // Let's check if we recahed position for both RA/DEC
+        // if (nlocked == 2)
+        // {
+        //     // Let's set state to TRACKING
+        //     TrackState = SCOPE_TRACKING;
+        //     DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+        // }
         break;
     default:
         break;
@@ -339,17 +365,16 @@ bool GapersScope::_setMoveDataRA( double distance ) {
   // abbastanza piccolo da essere trascurabile.
   correction = tm * vs;
   // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
-  // TODO: memorizzare i dati necessari al movimento nelle apposite proprietà della classe
+  raMovement.angle = distance;
   raMovement.steps = static_cast<long>((steps+0.5) * direction + correction );
   raMovement.startQuote = 0;
   raMovement.endQuote = 0;
   raMovement.rotations = 0;
+  raMovement.time = tm;
   if (raMovement.steps > 80*12800) {
     return _rotationsCalc(raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
-  } else {
-    raMovement.time = raMovement.steps / 220000.0;
-    return true;
   }
+  return true;
 }
 
 bool GapersScope::_setMoveDataDEC( double distance ) {
@@ -385,7 +410,6 @@ bool GapersScope::_setMoveDataDEC( double distance ) {
     tm = (steps * tr) / rs;
   }
   // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
-  // TODO: memorizzare i dati necessari al movimento nelle apposite proprietà della classe
   decMovement.angle = distance;
   decMovement.steps = static_cast<long>((steps+0.5) * direction );
   decMovement.startQuote = 0;
@@ -394,10 +418,8 @@ bool GapersScope::_setMoveDataDEC( double distance ) {
   decMovement.time = tm;
   if (decMovement.steps > 80*12800) {
     return _rotationsCalc(decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
-  } else {
-    decMovement.time = decMovement.steps / 220000.0;
-    return true;
   }
+  return true;
 }
 
 

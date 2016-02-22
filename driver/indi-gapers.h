@@ -42,12 +42,12 @@ private:
       double time;      // time necessary for axis movement
     };
     AxisMovementParameters raMovement, decMovement;
+    time_t movementStart;
 
     long CorrectRA( long, double &);
     double rangeDistance( double );
     bool _setMoveDataRA( double );
     bool _setMoveDataDEC( double );
-    // bool ComputeLongMove( );
     bool _rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
 };
 #endif // GAPERSSCOPE_H
