@@ -143,7 +143,6 @@ bool GapersScope::Goto(double ra, double dec)
     fs_sexa(DecStr, targetDEC, 2, 3600);
 
     double raDist, decDist;
-    // long raSteps, decSteps;
 
     // Find angular distance between current and target position
     // Distance is then expressed in range -180/180 degrees (short path)
@@ -151,15 +150,12 @@ bool GapersScope::Goto(double ra, double dec)
     DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
 
     // Update movement data for RA (also accounting for sidereal motion )
-    // raSteps = raDist * 220088.2;
-    // double raSlewTime;
     if (! _setMoveDataRA(raDist)) {
       DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
       return false;
     };
 
     decDist = rangeDistance(targetDEC - currentDEC);
-    // decSteps = decDist * 192000.0;
     if (! _setMoveDataDEC(decDist)) {
       DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
       return false;
@@ -291,8 +287,9 @@ bool GapersScope::_setMoveDataRA( double distance ) {
   // necessario al movimento, ma l'errore così introdotto dovrebbe essere
   // abbastanza piccolo da essere trascurabile.
   correction = tm * vs;
-  // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
+  // Impostazione variabili necessarie per il movimento (movimento semplice o per giri)
   raMovement.angle = distance;
+  // Imposta il numero di passi corretto arrotondato all'intero più vicino
   raMovement.steps = static_cast<long>((steps+0.5) * direction + correction );
   raMovement.startQuote = 0;
   raMovement.endQuote = 0;
