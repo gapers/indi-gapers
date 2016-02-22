@@ -236,44 +236,6 @@ bool GapersScope::ReadScopeStatus()
           TrackState = SCOPE_TRACKING;
           DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
         }
-
-        // // Wait until we are "locked" into positon for both RA & DEC axis
-        // nlocked = 0;
-        // // Calculate diff in RA
-        // dx = targetRA - currentRA;
-        // // If diff is very small, i.e. smaller than how much we changed since last time, then we reached target RA.
-        // if (fabs(dx)*15. <= da_ra)
-        // {
-        //     currentRA = targetRA;
-        //     nlocked++;
-        // }
-        // // Otherwise, increase RA
-        // else if (dx > 0)
-        //     currentRA += da_ra/15.;
-        // // Otherwise, decrease RA
-        // else
-        //     currentRA -= da_ra/15.;
-        // // Calculate diff in DEC
-        // dy = targetDEC - currentDEC;
-        // // If diff is very small, i.e. smaller than how much we changed since last time, then we reached target DEC.
-        // if (fabs(dy) <= da_dec)
-        // {
-        //     currentDEC = targetDEC;
-        //     nlocked++;
-        // }
-        // // Otherwise, increase DEC
-        // else if (dy > 0)
-        //   currentDEC += da_dec;
-        // // Otherwise, decrease DEC
-        // else
-        //   currentDEC -= da_dec;
-        // // Let's check if we recahed position for both RA/DEC
-        // if (nlocked == 2)
-        // {
-        //     // Let's set state to TRACKING
-        //     TrackState = SCOPE_TRACKING;
-        //     DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-        // }
         break;
     default:
         break;
