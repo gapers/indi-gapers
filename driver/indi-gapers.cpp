@@ -287,41 +287,6 @@ bool GapersScope::ReadScopeStatus()
     return true;
 }
 
-long GapersScope::CorrectRA( long st, double & tm )
-{
-  // Ricostruzione del calcolo:
-  // Si considerano i passi necessari per portarsi nella nuova posizione (st)
-  // Si calcola il tempo totale necessario per coprire la distanza angolare
-  // richiesta, alla velocità di puntamento meno la velocità siderale e togliendo
-  // infine il tempo necessario per coprire le rampe di accelerazione e
-  // decellerazione del motore (calcolo che non mi è chiarissimo)
-  // I passi totali vengono quindi corretti aggiungendo i passi necessari
-  // a coprire il moto siderale per i tempi di rampa più il tempo di movimento
-  // dell'asse : rtn
-	const double vs = 919.456;	 // Velocità siderale motore (impulsi al sec.)
-	double rtn;
-	double tvp;
-	// Tempo (sec) totale di rampa (5x perchè la rampa è moltiplicata per 5)
-	double tr = 5.0 * ((st > 0L) ? 0.452 : -0.452);
-	// Velocità massima di puntamento
-	double vp = ((st > 0L) ? 220000.0 : -220000.0);
-	// Numero passi richiesti per spostamento
-	double steps = (double)((st > 0L) ? st : -st);
-
-	// Tempo (sec) di pemanenza a velocità massima
-	tvp = ( steps / (vp - vs)) - tr;
-
-	// printf( "Total time: %7.3lf secs\n", (2.0 * tr + tvp));
-	tm = fabs( 2.0 * tr + tvp);	 // Tempo (sec) totale per spostamento asse
-	// m_RAslwTm = (long)((2.0 * tr + tvp) * 1000); // Tempo (ms) totale per spostamento asse
-	// m_RAslwTm = (m_RAslwTm > 0L) ? m_RAslwTm : -m_RAslwTm; // Correzione direzione
-
-	// Numero passi corretto per velocità siderale
-  rtn = steps + (2 * tr * vs + tvp * vs);
-	// Correzione direzione
-	return (long)((st > 0L) ? rtn : -rtn);
-}
-
 bool GapersScope::_setMoveDataRA( double distance ) {
   // Durante lo spostamento in ascensione retta occorre compensare il moto
   // siderale che si manifesta nel tempo necessario al movimento dell'asse.

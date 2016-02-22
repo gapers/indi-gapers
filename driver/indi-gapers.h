@@ -44,7 +44,6 @@ private:
     AxisMovementParameters raMovement, decMovement;
     time_t movementStart;
 
-    long CorrectRA( long, double &);
     double rangeDistance( double );
     bool _setMoveDataRA( double );
     bool _setMoveDataDEC( double );
