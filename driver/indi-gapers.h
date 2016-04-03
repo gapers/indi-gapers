@@ -13,9 +13,13 @@ class GapersScope : public INDI::Telescope
 {
 public:
     GapersScope();
-    bool initProperties();
 
 protected:
+
+  // All telescopes should produce equatorial co-ordinates
+  INumberVectorProperty Eq2kNP;
+  INumber Eq2kN[2];
+
     // General device functions
     bool Connect();
     bool Disconnect();

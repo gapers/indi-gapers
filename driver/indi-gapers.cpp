@@ -102,6 +102,14 @@ bool GapersScope::initProperties()
 {
     // ALWAYS call initProperties() of parent first
     INDI::Telescope::initProperties();
+
+    // Add J2K Coordinates handler
+    IUFillNumber(&EqN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
+    IUFillNumber(&EqN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
+    IUFillNumberVector(&EqNP,EqN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
+
+    INDI::Telescope::initProperties();
+
     addDebugControl();
     return true;
 }
@@ -461,12 +469,4 @@ bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_gir
 		}
 	}
   return true;
-}
-
-bool GapersScope::initProperties() {
-  IUFillNumber(&EqN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
-  IUFillNumber(&EqN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
-  IUFillNumberVector(&EqNP,EqN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
-
-  INDI::Telescope::initProperties();
 }
