@@ -13,6 +13,8 @@ class GapersScope : public INDI::Telescope
 {
 public:
     GapersScope();
+    bool initProperties();
+
 protected:
     // General device functions
     bool Connect();
