@@ -104,9 +104,9 @@ bool GapersScope::initProperties()
     INDI::Telescope::initProperties();
 
     // Add J2K Coordinates handler
-    IUFillNumber(&EqN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
-    IUFillNumber(&EqN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
-    IUFillNumberVector(&EqNP,EqN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
+    IUFillNumber(&Eq2kN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
+    IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
+    IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
 
     INDI::Telescope::initProperties();
 
@@ -469,4 +469,85 @@ bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_gir
 		}
 	}
   return true;
+}
+
+void GapersScope::ISGetProperties (const char *dev) {
+  //  First we let our parent populate
+  INDI::Telescope::ISGetProperties (dev);
+
+  if(isConnected()) {
+    // Add eq coord J2000 number
+    defineNumber(&Eq2kNP);
+  }
+
+}
+
+bool INDI::Telescope::updateProperties()
+{
+
+    if(isConnected())
+    {
+        //  Now we add our telescope specific stuff
+        defineSwitch(&CoordSP);
+        defineNumber(&EqNP);
+        if (capability.canAbort)
+            defineSwitch(&AbortSP);
+        defineSwitch(&MovementNSSP);
+        defineSwitch(&MovementWESP);
+        if (capability.nSlewRate >= 4)
+            defineSwitch(&SlewRateSP);
+
+        if (capability.hasTime)
+            defineText(&TimeTP);
+        if (capability.hasLocation)
+            defineNumber(&LocationNP);
+        if (capability.canPark)
+        {
+            defineSwitch(&ParkSP);
+            if (parkDataType != PARK_NONE)
+            {
+                defineNumber(&ParkPositionNP);
+                defineSwitch(&ParkOptionSP);
+            }
+        }
+        defineNumber(&ScopeParametersNP);
+
+        if (capability.hasTime && capability.hasLocation)
+            defineText(&ActiveDeviceTP);
+
+    }
+    else
+    {
+        deleteProperty(CoordSP.name);
+        deleteProperty(EqNP.name);
+        if (capability.canAbort)
+            deleteProperty(AbortSP.name);
+        deleteProperty(MovementNSSP.name);
+        deleteProperty(MovementWESP.name);
+        if (capability.nSlewRate >= 4)
+            deleteProperty(SlewRateSP.name);
+
+        if (capability.hasTime)
+            deleteProperty(TimeTP.name);
+        if (capability.hasLocation)
+            deleteProperty(LocationNP.name);
+
+        if (capability.canPark)
+        {
+            deleteProperty(ParkSP.name);
+            if (parkDataType != PARK_NONE)
+            {
+                deleteProperty(ParkPositionNP.name);
+                deleteProperty(ParkOptionSP.name);
+            }
+        }
+        deleteProperty(ScopeParametersNP.name);
+
+        if (capability.hasTime && capability.hasLocation)
+            deleteProperty(ActiveDeviceTP.name);
+    }
+
+    controller->updateProperties();
+
+    return true;
 }
