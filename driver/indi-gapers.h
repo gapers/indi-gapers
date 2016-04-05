@@ -25,6 +25,7 @@ protected:
   bool Connect();
   bool Disconnect();
   const char *getDefaultName();
+  void NewRaDec(double ra,double dec);
   virtual bool initProperties();
   virtual bool updateProperties();
   // Telescoe specific functions
@@ -38,6 +39,7 @@ private:
   double targetRA;
   double targetDEC;
   unsigned int DBG_SCOPE;
+  IPState lastEq2kState;
 
   // Properties representing encoder steps and stepper axle rounds used in
   // axis movement. RA and DEC share the same structure for tidyness

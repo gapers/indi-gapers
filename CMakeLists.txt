@@ -17,7 +17,7 @@ include_directories( ${NOVA_INCLUDE_DIR})
 
 # Target executable
 add_executable(indi_gapers driver/indi-gapers.cpp)
-target_link_libraries(indi_gapers ${INDI_DRIVER_LIBRARIES})
+target_link_libraries(indi_gapers ${INDI_DRIVER_LIBRARIES} ${NOVA_LIBRARIES})
 
 # Installation target
 install (TARGETS indi_gapers DESTINATION bin)

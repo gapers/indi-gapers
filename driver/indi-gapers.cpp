@@ -1,10 +1,10 @@
 /*
-   INDI Developers Manual
-   Tutorial #2
-   "Simple Telescope Driver"
-   We develop a simple telescope simulator.
-   Refer to README, which contains instruction on how to build this driver, and use it
-   with an INDI-compatible client.
+INDI Developers Manual
+Tutorial #2
+"Simple Telescope Driver"
+We develop a simple telescope simulator.
+Refer to README, which contains instruction on how to build this driver, and use it
+with an INDI-compatible client.
 */
 #include <sys/time.h>
 #include <math.h>
@@ -12,6 +12,7 @@
 #include "indi-gapers.h"
 #include "indicom.h"
 #include <inditelescope.h>
+#include <libnova.h>
 
 const float SIDRATE  = 0.004178;                        /* sidereal rate, degrees/s */
 const int   SLEW_RATE =         15;                              /* slew rate, degrees/s */
@@ -22,54 +23,54 @@ std::auto_ptr<GapersScope> gapersScope(0);
 ***************************************************************************************/
 void ISInit()
 {
- static int isInit=0;
- if (isInit)
+  static int isInit=0;
+  if (isInit)
   return;
- if (gapersScope.get() == 0)
- {
-     isInit = 1;
-     gapersScope.reset(new GapersScope());
- }
+  if (gapersScope.get() == 0)
+  {
+    isInit = 1;
+    gapersScope.reset(new GapersScope());
+  }
 }
 /**************************************************************************************
 ** Return properties of device.
 ***************************************************************************************/
 void ISGetProperties (const char *dev)
 {
- ISInit();
- gapersScope->ISGetProperties(dev);
+  ISInit();
+  gapersScope->ISGetProperties(dev);
 }
 /**************************************************************************************
 ** Process new switch from client
 ***************************************************************************************/
 void ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n)
 {
- ISInit();
- gapersScope->ISNewSwitch(dev, name, states, names, n);
+  ISInit();
+  gapersScope->ISNewSwitch(dev, name, states, names, n);
 }
 /**************************************************************************************
 ** Process new text from client
 ***************************************************************************************/
 void ISNewText (const char *dev, const char *name, char *texts[], char *names[], int n)
 {
- ISInit();
- gapersScope->ISNewText(dev, name, texts, names, n);
+  ISInit();
+  gapersScope->ISNewText(dev, name, texts, names, n);
 }
 /**************************************************************************************
 ** Process new number from client
 ***************************************************************************************/
 void ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n)
 {
- ISInit();
- gapersScope->ISNewNumber(dev, name, values, names, n);
+  ISInit();
+  gapersScope->ISNewNumber(dev, name, values, names, n);
 }
 /**************************************************************************************
 ** Process new blob from client
 ***************************************************************************************/
 void ISNewBLOB (const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n)
 {
-    ISInit();
-    gapersScope->ISNewBLOB(dev, name, sizes, blobsizes, blobs, formats, names, n);
+  ISInit();
+  gapersScope->ISNewBLOB(dev, name, sizes, blobsizes, blobs, formats, names, n);
 }
 /**************************************************************************************
 ** Process snooped property from another driver
@@ -81,176 +82,176 @@ void ISSnoopDevice (XMLEle *root)
 
 GapersScope::GapersScope()
 {
-    currentRA  = 0;
-    currentDEC = 90;
-    // We add an additional debug level so we can log verbose scope status
-    DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
-    // capability = TELESCOPE_CAN_SYNC;
-    SetTelescopeCapability(TELESCOPE_CAN_SYNC, 0); // Telescope can sync and has a single slew rate
-    // TelescopeCapability cap;
-    // cap.canPark = false;
-    // cap.canSync = true;
-    // cap.canAbort = false;
-    // cap.hasLocation = false;
-    // cap.hasTime = false;
-    // SetTelescopeCapability(&cap);
+  currentRA  = 0;
+  currentDEC = 90;
+  // We add an additional debug level so we can log verbose scope status
+  DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
+  // capability = TELESCOPE_CAN_SYNC;
+  SetTelescopeCapability(TELESCOPE_CAN_SYNC, 0); // Telescope can sync and has a single slew rate
+  // TelescopeCapability cap;
+  // cap.canPark = false;
+  // cap.canSync = true;
+  // cap.canAbort = false;
+  // cap.hasLocation = false;
+  // cap.hasTime = false;
+  // SetTelescopeCapability(&cap);
 }
 /**************************************************************************************
 ** We init our properties here. The only thing we want to init are the Debug controls
 ***************************************************************************************/
 bool GapersScope::initProperties()
 {
-    // ALWAYS call initProperties() of parent first
-    INDI::Telescope::initProperties();
+  // ALWAYS call initProperties() of parent first
+  INDI::Telescope::initProperties();
 
-    // Add J2K Coordinates handler
-    IUFillNumber(&Eq2kN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
-    IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
-    IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
+  // Add J2K Coordinates handler
+  IUFillNumber(&Eq2kN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
+  IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
+  IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
 
-    INDI::Telescope::initProperties();
+  INDI::Telescope::initProperties();
 
-    addDebugControl();
-    return true;
+  addDebugControl();
+  return true;
 }
 /**************************************************************************************
 ** Client is asking us to establish connection to the device
 ***************************************************************************************/
 bool GapersScope::Connect()
 {
-    DEBUG(INDI::Logger::DBG_SESSION, "Simple Scope connected successfully!");
-    // Let's set a timer that checks telescopes status every POLLMS milliseconds.
-    SetTimer(POLLMS);
-    return true;
+  DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope connected successfully!");
+  // Let's set a timer that checks telescopes status every POLLMS milliseconds.
+  SetTimer(POLLMS);
+  return true;
 }
 /**************************************************************************************
 ** Client is asking us to terminate connection to the device
 ***************************************************************************************/
 bool GapersScope::Disconnect()
 {
-    DEBUG(INDI::Logger::DBG_SESSION, "Simple Scope disconnected successfully!");
-    return true;
+  DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope disconnected successfully!");
+  return true;
 }
 /**************************************************************************************
 ** INDI is asking us for our default device name
 ***************************************************************************************/
 const char * GapersScope::getDefaultName()
 {
-    return "GAPers Scope";
+  return "GAPers Scope";
 }
 /**************************************************************************************
 ** Client is asking us to slew to a new position
 ***************************************************************************************/
 bool GapersScope::Goto(double ra, double dec)
 {
-    targetRA=ra;
-    targetDEC=dec;
-    char RAStr[64], DecStr[64];
-    // Parse the RA/DEC into strings
-    fs_sexa(RAStr, targetRA, 2, 3600);
-    fs_sexa(DecStr, targetDEC, 2, 3600);
+  targetRA=ra;
+  targetDEC=dec;
+  char RAStr[64], DecStr[64];
+  // Parse the RA/DEC into strings
+  fs_sexa(RAStr, targetRA, 2, 3600);
+  fs_sexa(DecStr, targetDEC, 2, 3600);
 
-    double raDist, decDist;
+  double raDist, decDist;
 
-    // Find angular distance between current and target position
-    // Distance is then expressed in range -180/180 degrees (short path)
-    raDist = rangeDistance((targetRA - currentRA) * 15.0);
-    DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
+  // Find angular distance between current and target position
+  // Distance is then expressed in range -180/180 degrees (short path)
+  raDist = rangeDistance((targetRA - currentRA) * 15.0);
+  DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
 
-    // Update movement data for RA (also accounting for sidereal motion )
-    if (! _setMoveDataRA(raDist)) {
-      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
-      return false;
-    };
+  // Update movement data for RA (also accounting for sidereal motion )
+  if (! _setMoveDataRA(raDist)) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
+    return false;
+  };
 
-    decDist = rangeDistance(targetDEC - currentDEC);
-    if (! _setMoveDataDEC(decDist)) {
-      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
-      return false;
-    };
+  decDist = rangeDistance(targetDEC - currentDEC);
+  if (! _setMoveDataDEC(decDist)) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
+    return false;
+  };
 
-    // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
-    movementStart = time(NULL) + 5;
+  // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
+  movementStart = time(NULL) + 5;
 
-    // Mark state as slewing
-    TrackState = SCOPE_SLEWING;
-    // Inform client we are slewing to a new position
-    DEBUGF(INDI::Logger::DBG_SESSION, "Slewing to RA: %s - DEC: %s", RAStr, DecStr);
+  // Mark state as slewing
+  TrackState = SCOPE_SLEWING;
+  // Inform client we are slewing to a new position
+  DEBUGF(INDI::Logger::DBG_SESSION, "Slewing to RA: %s - DEC: %s", RAStr, DecStr);
 
-    char raDistStr[64];
-    fs_sexa(raDistStr, raDist, 2, 3600);
-    DEBUGF(INDI::Logger::DBG_SESSION, "RA dist: %s RA steps (corrected): %ld", raDistStr, raMovement.steps);
-    char decDistStr[64];
-    fs_sexa(decDistStr, decDist, 2, 3600);
-    DEBUGF(INDI::Logger::DBG_SESSION, "DEC dist: %s DEC steps (uncorrected): %ld", decDistStr, decMovement.steps);
-    // Success!
-    return true;
+  char raDistStr[64];
+  fs_sexa(raDistStr, raDist, 2, 3600);
+  DEBUGF(INDI::Logger::DBG_SESSION, "RA dist: %s RA steps (corrected): %ld", raDistStr, raMovement.steps);
+  char decDistStr[64];
+  fs_sexa(decDistStr, decDist, 2, 3600);
+  DEBUGF(INDI::Logger::DBG_SESSION, "DEC dist: %s DEC steps (uncorrected): %ld", decDistStr, decMovement.steps);
+  // Success!
+  return true;
 }
 /**************************************************************************************
 ** Client is asking us to abort our motion
 ***************************************************************************************/
 bool GapersScope::Abort()
 {
-    TrackState = SCOPE_IDLE;
-    DEBUG(INDI::Logger::DBG_SESSION, "Simple Scope stopped.");
-    return true;
+  TrackState = SCOPE_IDLE;
+  DEBUG(INDI::Logger::DBG_SESSION, "Simple Scope stopped.");
+  return true;
 }
 /**************************************************************************************
 ** Client is asking us to report telescope status
 ***************************************************************************************/
 bool GapersScope::ReadScopeStatus()
 {
-    static struct timeval ltv;
-    struct timeval tv;
-    double dt=0, da_ra=0, da_dec=0, dx=0, dy=0;
-    int nlocked;
-    /* update elapsed time since last poll, don't presume exactly POLLMS */
-    gettimeofday (&tv, NULL);
-    if (ltv.tv_sec == 0 && ltv.tv_usec == 0)
-        ltv = tv;
-    dt = tv.tv_sec - ltv.tv_sec + (tv.tv_usec - ltv.tv_usec)/1e6;
-    ltv = tv;
-    // Calculate how much we moved since last time
-    da_ra = SLEW_RATE *dt;
-    da_dec = SLEW_RATE *dt;
-    /* Process per current state. We check the state of EQUATORIAL_EOD_COORDS_REQUEST and act acoordingly */
-    switch (TrackState)
-    {
+  static struct timeval ltv;
+  struct timeval tv;
+  double dt=0, da_ra=0, da_dec=0, dx=0, dy=0;
+  int nlocked;
+  /* update elapsed time since last poll, don't presume exactly POLLMS */
+  gettimeofday (&tv, NULL);
+  if (ltv.tv_sec == 0 && ltv.tv_usec == 0)
+  ltv = tv;
+  dt = tv.tv_sec - ltv.tv_sec + (tv.tv_usec - ltv.tv_usec)/1e6;
+  ltv = tv;
+  // Calculate how much we moved since last time
+  da_ra = SLEW_RATE *dt;
+  da_dec = SLEW_RATE *dt;
+  /* Process per current state. We check the state of EQUATORIAL_EOD_COORDS_REQUEST and act acoordingly */
+  switch (TrackState)
+  {
     case SCOPE_SLEWING:
-        time_t currentTime;
-        time(&currentTime);
-        double offset;
-        double elapsed;
-        elapsed = difftime(currentTime, movementStart);
-        if (elapsed > 0) {
-          // interpolate RA position
-          if (elapsed < raMovement.time) {
-            offset = ( raMovement.angle * elapsed ) / raMovement.time;
-            currentRA = targetRA - ((raMovement.angle - offset)/15.0);
-          }
-          if (elapsed < decMovement.time) {
-            offset = ( decMovement.angle * elapsed ) / decMovement.time;
-            currentDEC = targetDEC - ( decMovement.angle - offset );
-          }
-        }
-        if ((elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
-          currentRA = targetRA;
-          currentDEC = targetDEC;
-          // Let's set state to TRACKING
-          TrackState = SCOPE_TRACKING;
-          DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-        }
-        break;
-    default:
-        break;
+    time_t currentTime;
+    time(&currentTime);
+    double offset;
+    double elapsed;
+    elapsed = difftime(currentTime, movementStart);
+    if (elapsed > 0) {
+      // interpolate RA position
+      if (elapsed < raMovement.time) {
+        offset = ( raMovement.angle * elapsed ) / raMovement.time;
+        currentRA = targetRA - ((raMovement.angle - offset)/15.0);
+      }
+      if (elapsed < decMovement.time) {
+        offset = ( decMovement.angle * elapsed ) / decMovement.time;
+        currentDEC = targetDEC - ( decMovement.angle - offset );
+      }
     }
-    char RAStr[64], DecStr[64];
-    // Parse the RA/DEC into strings
-    fs_sexa(RAStr, currentRA, 2, 3600);
-    fs_sexa(DecStr, currentDEC, 2, 3600);
-    DEBUGF(DBG_SCOPE, "Current RA: %s Current DEC: %s", RAStr, DecStr );
-    NewRaDec(currentRA, currentDEC);
-    return true;
+    if ((elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+      currentRA = targetRA;
+      currentDEC = targetDEC;
+      // Let's set state to TRACKING
+      TrackState = SCOPE_TRACKING;
+      DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+    }
+    break;
+    default:
+    break;
+  }
+  char RAStr[64], DecStr[64];
+  // Parse the RA/DEC into strings
+  fs_sexa(RAStr, currentRA, 2, 3600);
+  fs_sexa(DecStr, currentDEC, 2, 3600);
+  DEBUGF(DBG_SCOPE, "Current RA: %s Current DEC: %s", RAStr, DecStr );
+  NewRaDec(currentRA, currentDEC);
+  return true;
 }
 
 bool GapersScope::_setMoveDataRA( double distance ) {
@@ -357,11 +358,11 @@ bool GapersScope::_setMoveDataDEC( double distance ) {
 
 double GapersScope::rangeDistance( double angle) {
   /*
-   * Riporta il range di un angolo all'interno di +/-180 gradi
-   * da utilizzare nel calcolo delle differenze angolari per
-   * gli spostamenti nelle due direzioni in modo da utilizzare
-   * sempre il percorso angolare più breve.
-   */
+  * Riporta il range di un angolo all'interno di +/-180 gradi
+  * da utilizzare nel calcolo delle differenze angolari per
+  * gli spostamenti nelle due direzioni in modo da utilizzare
+  * sempre il percorso angolare più breve.
+  */
   double r = angle;
   while (r < -180.0) r += 360.0;
   while (r > 180.0) r -= 360.0;
@@ -423,12 +424,12 @@ bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_gir
   // avviare questa procedura.
 
   const long qrange = 8388608+8388608; // range of stepper quota values (from -8388608 to +8388607)
-	const long qsafe = 80*12800; // safe quota equivalent of 80 revolutions
+  const long qsafe = 80*12800; // safe quota equivalent of 80 revolutions
 
-	m_sq=0;
-	m_eq=0;
+  m_sq=0;
+  m_eq=0;
 
-	if (abs(steps) < qsafe) {
+  if (abs(steps) < qsafe) {
     // Sanity check: questa procedura dovrebbe essere utilizzata soltanto per
     // spostamenti superiori a 38 gradi, 2^23 passi. Utilizzarla per movimenti
     // più ridotti non è comunque un problema fino a che si sta sopra alla
@@ -436,39 +437,39 @@ bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_gir
     // passi ovvero circa 4 gradi.
     // TODO: gestione dell'errore qualora venga richiesto un movimento troppo
     // piccolo
-		//    error("lo spostamento lungo deve essere usato solo per movimenti > 1<<23 passi.");
-		return false;
-	}
+    //    error("lo spostamento lungo deve essere usato solo per movimenti > 1<<23 passi.");
+    return false;
+  }
 
-	if (steps > 0) {
-		// steps are positive, clockwise movement)
-		m_sq = -8388608;
-		m_eq = (steps % qrange)+m_sq;
-		m_giri = ((steps - qsafe) / 12800) + 1;
-		if ( m_eq < (m_sq + qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-			m_sq += qsafe;
-			m_eq += qsafe;
-		}
-		// check for a nasty race condition in plc program
-		if (m_eq == 0) {
-			m_sq += 100;
-			m_eq = 100;
-		}
-	} else { // steps are negative (counterclockwise movement)
-		m_sq = 8388607;
-		m_eq = (steps % qrange)+m_sq;
-		m_giri = ((steps + qsafe) / 12800) -1;
-		if ( m_eq > (m_sq - qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-			m_sq -= qsafe;
-			m_eq -= qsafe;
-		}
-		// check for a nasty race condition in plc program
-		if (m_eq == 0) {
-			m_sq -= 100;
-			m_eq = -100;
-		}
-	}
-  return true;
+  if (steps > 0) {
+    // steps are positive, clockwise movement)
+    m_sq = -8388608;
+    m_eq = (steps % qrange)+m_sq;
+    m_giri = ((steps - qsafe) / 12800) + 1;
+    if ( m_eq < (m_sq + qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
+    m_sq += qsafe;
+    m_eq += qsafe;
+  }
+  // check for a nasty race condition in plc program
+  if (m_eq == 0) {
+    m_sq += 100;
+    m_eq = 100;
+  }
+} else { // steps are negative (counterclockwise movement)
+  m_sq = 8388607;
+  m_eq = (steps % qrange)+m_sq;
+  m_giri = ((steps + qsafe) / 12800) -1;
+  if ( m_eq > (m_sq - qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
+  m_sq -= qsafe;
+  m_eq -= qsafe;
+}
+// check for a nasty race condition in plc program
+if (m_eq == 0) {
+  m_sq -= 100;
+  m_eq = -100;
+}
+}
+return true;
 }
 
 void GapersScope::ISGetProperties (const char *dev) {
@@ -482,72 +483,53 @@ void GapersScope::ISGetProperties (const char *dev) {
 
 }
 
-bool INDI::Telescope::updateProperties()
+bool GapersScope::updateProperties()
 {
 
-    if(isConnected())
-    {
-        //  Now we add our telescope specific stuff
-        defineSwitch(&CoordSP);
-        defineNumber(&EqNP);
-        if (capability.canAbort)
-            defineSwitch(&AbortSP);
-        defineSwitch(&MovementNSSP);
-        defineSwitch(&MovementWESP);
-        if (capability.nSlewRate >= 4)
-            defineSwitch(&SlewRateSP);
+  if(isConnected())
+  {
+    defineNumber(&Eq2kNP);
+  }
+  else
+  {
+    deleteProperty(Eq2kNP.name);
+  }
 
-        if (capability.hasTime)
-            defineText(&TimeTP);
-        if (capability.hasLocation)
-            defineNumber(&LocationNP);
-        if (capability.canPark)
-        {
-            defineSwitch(&ParkSP);
-            if (parkDataType != PARK_NONE)
-            {
-                defineNumber(&ParkPositionNP);
-                defineSwitch(&ParkOptionSP);
-            }
-        }
-        defineNumber(&ScopeParametersNP);
+  return INDI::Telescope::updateProperties();
+}
 
-        if (capability.hasTime && capability.hasLocation)
-            defineText(&ActiveDeviceTP);
+void GapersScope::NewRaDec(double ra,double dec) {
+  switch(TrackState)
+  {
+    case SCOPE_PARKED:
+    case SCOPE_IDLE:
+    Eq2kNP.s=IPS_IDLE;
+    break;
 
-    }
-    else
-    {
-        deleteProperty(CoordSP.name);
-        deleteProperty(EqNP.name);
-        if (capability.canAbort)
-            deleteProperty(AbortSP.name);
-        deleteProperty(MovementNSSP.name);
-        deleteProperty(MovementWESP.name);
-        if (capability.nSlewRate >= 4)
-            deleteProperty(SlewRateSP.name);
+    case SCOPE_SLEWING:
+    Eq2kNP.s=IPS_BUSY;
+    break;
 
-        if (capability.hasTime)
-            deleteProperty(TimeTP.name);
-        if (capability.hasLocation)
-            deleteProperty(LocationNP.name);
+    case SCOPE_TRACKING:
+    Eq2kNP.s=IPS_OK;
+    break;
 
-        if (capability.canPark)
-        {
-            deleteProperty(ParkSP.name);
-            if (parkDataType != PARK_NONE)
-            {
-                deleteProperty(ParkPositionNP.name);
-                deleteProperty(ParkOptionSP.name);
-            }
-        }
-        deleteProperty(ScopeParametersNP.name);
+    default:
+    break;
+  }
 
-        if (capability.hasTime && capability.hasLocation)
-            deleteProperty(ActiveDeviceTP.name);
-    }
+  ln_equ_posn jnow, j2k;
 
-    controller->updateProperties();
+  jnow.ra = ra;
+  jnow.dec = dec;
+  ln_get_equ_prec2(&jnow, ln_get_julian_from_sys(), 2451545.0, &j2k);
 
-    return true;
+  if (Eq2kN[AXIS_RA].value != j2k.ra || Eq2kN[AXIS_DE].value != j2k.dec || Eq2kNP.s != lastEq2kState)
+  {
+    Eq2kN[AXIS_RA].value=j2k.ra;
+    Eq2kN[AXIS_DE].value=j2k.dec;
+    lastEq2kState = Eq2kNP.s;
+    IDSetNumber(&Eq2kNP, NULL);
+  }
+  INDI::Telescope::NewRaDec(ra, dec);
 }
