@@ -10,13 +10,14 @@ with an INDI-compatible client.
 #include <math.h>
 #include <memory>
 #include "indi-gapers.h"
-#include "indicom.h"
+#include <indicom.h>
 #include <inditelescope.h>
 #include <libnova.h>
+#include <string>
 
-const float SIDRATE  = 0.004178;                        /* sidereal rate, degrees/s */
-const int   SLEW_RATE =         15;                              /* slew rate, degrees/s */
-const int   POLLMS       =      250;                            /* poll period, ms */
+const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
+const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
+const int   POLLMS = 250;                      /* poll period, ms */
 std::auto_ptr<GapersScope> gapersScope(0);
 /**************************************************************************************
 ** Initilize GapersScope object
@@ -111,6 +112,7 @@ bool GapersScope::initProperties()
 
   INDI::Telescope::initProperties();
 
+  addSimulationControl();
   addDebugControl();
   return true;
 }
@@ -119,11 +121,44 @@ bool GapersScope::initProperties()
 ***************************************************************************************/
 bool GapersScope::Connect()
 {
-  DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope connected successfully!");
-  // Let's set a timer that checks telescopes status every POLLMS milliseconds.
-  SetTimer(POLLMS);
+  bool rc=false;
+
+  if (isConnected())
+    return true;
+
+  rc=Connect(PortT[0].text, atoi(IUFindOnSwitch(&BaudRateSP)->name));
+  if (rc) {
+    // Let's set a timer that checks telescopes status every POLLMS milliseconds.
+    SetTimer(POLLMS);
+    DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope connected successfully!");
+  } else {
+    DEBUG(INDI::Logger::DBG_SESSION, "Error setting up connection with GAPers Scope.");
+  }
+
+  return rc;
+}
+
+bool GapersScope::Connect(const char *port, uint16_t baud) {
+  int connectrc = 0;
+  char errorMsg[MAXRBUF];
+
+  if (isSimulation()) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Telescope connected in simulation mode.");
+    return true;
+  }
+
+  DEBUGF(INDI::Logger::DBG_SESSION, "GAPers Scope connecting to %s at %dbps.", port, baud);
+  if ( (connectrc = tty_connect(port, baud, 8, 0, 1, &PortFD)) != TTY_OK) {
+    tty_error_msg(connectrc, errorMsg, MAXRBUF);
+    DEBUGF(INDI::Logger::DBG_SESSION, "Failed to connect to port %s. Error: %s", port, errorMsg);
+    return false;
+  }
+  DEBUGF(INDI::Logger::DBG_WARNING, "Port FD: %d", PortFD);
+  // TODO: test connection
+  DEBUG(INDI::Logger::DBG_SESSION, "Telescope is online.");
   return true;
 }
+
 /**************************************************************************************
 ** Client is asking us to terminate connection to the device
 ***************************************************************************************/
@@ -144,6 +179,11 @@ const char * GapersScope::getDefaultName()
 ***************************************************************************************/
 bool GapersScope::Goto(double ra, double dec)
 {
+  // Check for telescope status and abort if slewing
+  if (TrackState == SCOPE_SLEWING) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Cannot move while telescope is slewing.");
+    return false;
+  }
   targetRA=ra;
   targetDEC=dec;
   char RAStr[64], DecStr[64];
@@ -201,20 +241,9 @@ bool GapersScope::Abort()
 ***************************************************************************************/
 bool GapersScope::ReadScopeStatus()
 {
-  static struct timeval ltv;
-  struct timeval tv;
-  double dt=0, da_ra=0, da_dec=0, dx=0, dy=0;
-  int nlocked;
-  /* update elapsed time since last poll, don't presume exactly POLLMS */
-  gettimeofday (&tv, NULL);
-  if (ltv.tv_sec == 0 && ltv.tv_usec == 0)
-  ltv = tv;
-  dt = tv.tv_sec - ltv.tv_sec + (tv.tv_usec - ltv.tv_usec)/1e6;
-  ltv = tv;
-  // Calculate how much we moved since last time
-  da_ra = SLEW_RATE *dt;
-  da_dec = SLEW_RATE *dt;
-  /* Process per current state. We check the state of EQUATORIAL_EOD_COORDS_REQUEST and act acoordingly */
+  // static buffer for serial reading
+  static std::string serial_queue;
+  /* If slewing, we simulate telescope movement. */
   switch (TrackState)
   {
     case SCOPE_SLEWING:
@@ -373,6 +402,11 @@ double GapersScope::rangeDistance( double angle) {
 ***************************************************************************************/
 bool GapersScope::Sync(double ra, double dec)
 {
+  // Check for telescope status and abort if slewing
+  if (TrackState == SCOPE_SLEWING) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Cannot move while telescope is slewing.");
+    return false;
+  }
   char RAStr[64], DecStr[64];
   // Parse the RA/DEC into strings
   fs_sexa(RAStr, ra, 2, 3600);
@@ -532,4 +566,265 @@ void GapersScope::NewRaDec(double ra,double dec) {
     IDSetNumber(&Eq2kNP, NULL);
   }
   INDI::Telescope::NewRaDec(ra, dec);
+}
+
+bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n)
+{
+  //  first check if it's for our device
+  if(strcmp(dev,getDeviceName())==0)
+  {
+    if(strcmp(name,"EQUATORIAL_COORD")==0)
+    {
+      //  this is for us, and it is a goto
+      bool rc=false;
+      double ra=-1;
+      double dec=-100;
+
+      for (int x=0; x<n; x++)
+      {
+        INumber *eqp = IUFindNumber (&Eq2kNP, names[x]);
+        if (eqp == &Eq2kN[AXIS_RA]) {
+          ra = values[x];
+        } else if (eqp == &Eq2kN[AXIS_DE]) {
+          dec = values[x];
+        }
+      }
+      if ((ra>=0)&&(ra<=24)&&(dec>=-90)&&(dec<=90))
+      {
+        // Convert coordinates to JNOW
+        ln_equ_posn jnow,j2k;
+        j2k.ra = ra;
+        j2k.dec = dec;
+        ln_get_equ_prec(&j2k, ln_get_julian_from_sys(), &jnow);
+        ra = jnow.ra;
+        dec = jnow.dec;
+        // Check if it is already parked.
+        if (CanPark()) {
+          if (isParked()) {
+            DEBUG(INDI::Logger::DBG_WARNING, "Please unpark the mount before issuing any motion/sync commands.");
+            Eq2kNP.s = lastEq2kState = IPS_IDLE;
+            IDSetNumber(&Eq2kNP, NULL);
+            return false;
+          }
+        }
+        // Check if it can sync
+        if (CanSync()) {
+          ISwitch *sw;
+          sw=IUFindSwitch(&CoordSP,"SYNC");
+          if((sw != NULL)&&( sw->s==ISS_ON )) {
+            rc=Sync(ra,dec);
+            if (rc)
+              Eq2kNP.s = lastEq2kState = IPS_OK;
+            else
+              Eq2kNP.s = lastEq2kState = IPS_ALERT;
+            IDSetNumber(&Eq2kNP, NULL);
+            return rc;
+          }
+        }
+        // Issue GOTO
+        rc=Goto(ra,dec);
+        if (rc)
+          Eq2kNP.s = lastEq2kState = IPS_BUSY;
+        else
+          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+        IDSetNumber(&Eq2kNP, NULL);
+      }
+      return rc;
+    }
+  }
+  return INDI::Telescope::ISNewNumber(dev,name,values,names,n);
+}
+
+#include <termios.h>
+#define PARITY_NONE    0
+#define PARITY_EVEN    1
+#define PARITY_ODD     2
+#include <fcntl.h>
+
+int GapersScope::tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd) {
+  int t_fd=-1;
+  char msg[80];
+  int bps;
+  struct termios tty_setting;
+
+  if ( (t_fd = open(device, O_RDWR | O_NOCTTY | O_NONBLOCK)) == -1)
+  {
+    *fd = -1;
+    return TTY_PORT_FAILURE;
+  }
+
+  /* Control Modes
+  Set bps rate */
+  switch (bit_rate) {
+    case 0:
+    bps = B0;
+    break;
+    case 50:
+    bps = B50;
+    break;
+    case 75:
+    bps = B75;
+    break;
+    case 110:
+    bps = B110;
+    break;
+    case 134:
+    bps = B134;
+    break;
+    case 150:
+    bps = B150;
+    break;
+    case 200:
+    bps = B200;
+    break;
+    case 300:
+    bps = B300;
+    break;
+    case 600:
+    bps = B600;
+    break;
+    case 1200:
+    bps = B1200;
+    break;
+    case 1800:
+    bps = B1800;
+    break;
+    case 2400:
+    bps = B2400;
+    break;
+    case 4800:
+    bps = B4800;
+    break;
+    case 9600:
+    bps = B9600;
+    break;
+    case 19200:
+    bps = B19200;
+    break;
+    case 38400:
+    bps = B38400;
+    break;
+    case 57600:
+    bps = B57600;
+    break;
+    case 115200:
+    bps = B115200;
+    break;
+    case 230400:
+    bps = B230400;
+    break;
+    default:
+    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid bit rate.", bit_rate) < 0)
+    perror(NULL);
+    else
+    perror(msg);
+    return TTY_PARAM_ERROR;
+  }
+  if ((cfsetispeed(&tty_setting, bps) < 0) ||
+  (cfsetospeed(&tty_setting, bps) < 0))
+  {
+    perror("tty_connect: failed setting bit rate.");
+    return TTY_PORT_FAILURE;
+  }
+
+  /* Control Modes
+  set no flow control word size, parity and stop bits.
+  Also don't hangup automatically and ignore modem status.
+  Finally enable receiving characters. */
+  tty_setting.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL | CRTSCTS);
+  tty_setting.c_cflag |= (CLOCAL | CREAD);
+
+  /* word size */
+  switch (word_size) {
+    case 5:
+    tty_setting.c_cflag |= CS5;
+    break;
+    case 6:
+    tty_setting.c_cflag |= CS6;
+    break;
+    case 7:
+    tty_setting.c_cflag |= CS7;
+    break;
+    case 8:
+    tty_setting.c_cflag |= CS8;
+    break;
+    default:
+
+    fprintf( stderr, "Default\n") ;
+    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid data bit count.", word_size) < 0)
+    perror(NULL);
+    else
+    perror(msg);
+
+    return TTY_PARAM_ERROR;
+  }
+
+  /* parity */
+  switch (parity) {
+    case PARITY_NONE:
+    break;
+    case PARITY_EVEN:
+    tty_setting.c_cflag |= PARENB;
+    break;
+    case PARITY_ODD:
+    tty_setting.c_cflag |= PARENB | PARODD;
+    break;
+    default:
+
+    fprintf( stderr, "Default1\n") ;
+    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid parity selection value.", parity) < 0)
+    perror(NULL);
+    else
+    perror(msg);
+
+    return TTY_PARAM_ERROR;
+  }
+
+  /* stop_bits */
+  switch (stop_bits) {
+    case 1:
+    break;
+    case 2:
+    tty_setting.c_cflag |= CSTOPB;
+    break;
+    default:
+    fprintf( stderr, "Default2\n") ;
+    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid stop bit count.", stop_bits) < 0)
+    perror(NULL);
+    else
+    perror(msg);
+
+    return TTY_PARAM_ERROR;
+  }
+  /* Control Modes complete */
+
+  /* Ignore bytes with parity errors and make terminal raw and dumb.*/
+  tty_setting.c_iflag &= ~(PARMRK | ISTRIP | IGNCR | ICRNL | INLCR | IXOFF | IXON | IXANY);
+  tty_setting.c_iflag |= INPCK | IGNPAR | IGNBRK;
+
+  /* Raw output.*/
+  tty_setting.c_oflag &= ~(OPOST | ONLCR);
+
+  /* Local Modes
+  Don't echo characters. Don't generate signals.
+  Don't process any characters. Don't block. */
+  tty_setting.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG | IEXTEN | NOFLSH | TOSTOP);
+  tty_setting.c_lflag |=  NOFLSH;
+
+  /* nonblocking read */
+  tty_setting.c_cc[VMIN]  = 0;
+  tty_setting.c_cc[VTIME] = 0;
+
+  /* now clear input and output buffers and activate the new terminal settings */
+  tcflush(t_fd, TCIOFLUSH);
+  if (tcsetattr(t_fd, TCSANOW, &tty_setting))
+  {
+    perror("tty_connect: failed setting attributes on serial port.");
+    tty_disconnect(t_fd);
+    return TTY_PORT_FAILURE;
+  }
+
+  *fd = t_fd;
+  /* return success */
+  return TTY_OK;
 }

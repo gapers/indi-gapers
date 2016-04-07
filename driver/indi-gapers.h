@@ -14,6 +14,7 @@ class GapersScope : public INDI::Telescope
 public:
   GapersScope();
   void ISGetProperties(const char*);
+  virtual bool ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n);
 
 protected:
 
@@ -23,6 +24,7 @@ protected:
 
   // General device functions
   bool Connect();
+  bool Connect(const char *port, uint16_t baud);
   bool Disconnect();
   const char *getDefaultName();
   void NewRaDec(double ra,double dec);
@@ -40,6 +42,9 @@ private:
   double targetDEC;
   unsigned int DBG_SCOPE;
   IPState lastEq2kState;
+
+  // Serial handling methods and properties
+  int tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd);
 
   // Properties representing encoder steps and stepper axle rounds used in
   // axis movement. RA and DEC share the same structure for tidyness
