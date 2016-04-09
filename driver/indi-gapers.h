@@ -52,7 +52,9 @@ private:
   void commHandler();
   void ParsePLCMessage(const std::string msg);
   void SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri);
+  void FinalizeMove();
   void SendCommand( char syst, short int cmd, long val );
+
   std::queue<std::string> _writequeue;
 
   // Properties representing encoder steps and stepper axle rounds used in

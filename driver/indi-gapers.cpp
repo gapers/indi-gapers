@@ -191,12 +191,17 @@ bool GapersScope::Goto(double ra, double dec)
   }
   targetRA=ra;
   targetDEC=dec;
+
   char RAStr[64], DecStr[64];
   // Parse the RA/DEC into strings
   fs_sexa(RAStr, targetRA, 2, 3600);
   fs_sexa(DecStr, targetDEC, 2, 3600);
 
   double raDist, decDist;
+
+  // Zeroes movement data
+  raMovement = AxisMovementParameters();
+  decMovement = AxisMovementParameters();
 
   // Find angular distance between current and target position
   // Distance is then expressed in range -180/180 degrees (short path)
@@ -208,6 +213,7 @@ bool GapersScope::Goto(double ra, double dec)
       DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
       return false;
     }
+    SendMove(1, raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
   }
 
   decDist = rangeDistance(targetDEC - currentDEC);
@@ -216,6 +222,11 @@ bool GapersScope::Goto(double ra, double dec)
       DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
       return false;
     }
+    SendMove(2, decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
+  }
+
+  if (raIsMoving || decIsMoving) {
+    FinalizeMove();
   }
 
   // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
@@ -253,33 +264,33 @@ bool GapersScope::ReadScopeStatus()
   switch (TrackState)
   {
     case SCOPE_SLEWING:
-      time_t currentTime;
-      time(&currentTime);
-      double offset;
-      double elapsed;
-      elapsed = difftime(currentTime, movementStart);
-      if (elapsed > 0) {
-        // interpolate RA position
-        if (elapsed < raMovement.time) {
-          offset = ( raMovement.angle * elapsed ) / raMovement.time;
-          currentRA = targetRA - ((raMovement.angle - offset)/15.0);
-        }
-        if (elapsed < decMovement.time) {
-          offset = ( decMovement.angle * elapsed ) / decMovement.time;
-          currentDEC = targetDEC - ( decMovement.angle - offset );
-        }
+    time_t currentTime;
+    time(&currentTime);
+    double offset;
+    double elapsed;
+    elapsed = difftime(currentTime, movementStart);
+    if (elapsed > 0) {
+      // interpolate RA position
+      if (elapsed < raMovement.time) {
+        offset = ( raMovement.angle * elapsed ) / raMovement.time;
+        currentRA = targetRA - ((raMovement.angle - offset)/15.0);
       }
-      if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
-        currentRA = targetRA;
-        currentDEC = targetDEC;
-        // Let's set state to TRACKING
-        TrackState = SCOPE_TRACKING;
-        DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+      if (elapsed < decMovement.time) {
+        offset = ( decMovement.angle * elapsed ) / decMovement.time;
+        currentDEC = targetDEC - ( decMovement.angle - offset );
       }
-      NewRaDec(currentRA, currentDEC);
-      break;
+    }
+    if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+      currentRA = targetRA;
+      currentDEC = targetDEC;
+      // Let's set state to TRACKING
+      TrackState = SCOPE_TRACKING;
+      DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+    }
+    NewRaDec(currentRA, currentDEC);
+    break;
     default:
-      break;
+    break;
   }
   return true;
 }
@@ -544,26 +555,27 @@ void GapersScope::NewRaDec(double ra,double dec) {
   {
     case SCOPE_PARKED:
     case SCOPE_IDLE:
-      Eq2kNP.s=IPS_IDLE;
-      break;
+    Eq2kNP.s=IPS_IDLE;
+    break;
 
     case SCOPE_SLEWING:
-      Eq2kNP.s=IPS_BUSY;
-      break;
+    Eq2kNP.s=IPS_BUSY;
+    break;
 
     case SCOPE_TRACKING:
-      Eq2kNP.s=IPS_OK;
-      break;
+    Eq2kNP.s=IPS_OK;
+    break;
 
     default:
-      break;
+    break;
   }
 
   ln_equ_posn jnow, j2k;
 
-  jnow.ra = ra;
+  jnow.ra = ra * 15.0;
   jnow.dec = dec;
-  ln_get_equ_prec2(&jnow, ln_get_julian_from_sys(), 2451545.0, &j2k);
+  ln_get_equ_prec2(&jnow, ln_get_julian_from_sys(), JD2000, &j2k);
+  j2k.ra /= 15.0;
 
   if (Eq2kN[AXIS_RA].value != j2k.ra || Eq2kN[AXIS_DE].value != j2k.dec || Eq2kNP.s != lastEq2kState)
   {
@@ -600,10 +612,10 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       {
         // Convert coordinates to JNOW
         ln_equ_posn jnow,j2k;
-        j2k.ra = ra;
+        j2k.ra = ra*15.0;
         j2k.dec = dec;
-        ln_get_equ_prec(&j2k, ln_get_julian_from_sys(), &jnow);
-        ra = jnow.ra;
+        ln_get_equ_prec2(&j2k, JD2000, ln_get_julian_from_sys(), &jnow);
+        ra = jnow.ra/15.0;
         dec = jnow.dec;
         // Check if it is already parked.
         if (CanPark()) {
@@ -854,7 +866,7 @@ void GapersScope::commHandler() {
   std::string rs = ""; // local buffer for holding a complete command
 
   if (isSimulation()) // No interaction with RS232 in simulation mode
-    return;
+  return;
 
   int rlen=0; // number of chars read by read below
   rlen = read(PortFD, inbuf, 80);
@@ -866,25 +878,25 @@ void GapersScope::commHandler() {
     unsigned char cbuf=inbuf[bufp];
     switch (c_state) {
       case STARTWAITING:
-        if (cbuf == ASCII_STX) {
-          queue_.clear();
-          c_state = READINGCOMMAND;
-        }
+      if (cbuf == ASCII_STX) {
+        queue_.clear();
+        c_state = READINGCOMMAND;
+      }
       break;
       case READINGCOMMAND:
-        if (cbuf == ASCII_STX) {
-          // if a new Start char is found before End char,
-          // reset queue, since we've likely got a transmission
-          // error anyway.
-          queue_.clear();
-        } else if (cbuf == ASCII_ETX) {
-          rs = queue_;
-          queue_.clear();
+      if (cbuf == ASCII_STX) {
+        // if a new Start char is found before End char,
+        // reset queue, since we've likely got a transmission
+        // error anyway.
+        queue_.clear();
+      } else if (cbuf == ASCII_ETX) {
+        rs = queue_;
+        queue_.clear();
 
-          c_state = STARTWAITING;
-        } else {
-          queue_.push_back(cbuf);
-        }
+        c_state = STARTWAITING;
+      } else {
+        queue_.push_back(cbuf);
+      }
       break;
     }
     // we process the command read from line outside main parsing block, in
@@ -895,105 +907,104 @@ void GapersScope::commHandler() {
     }
   }
   // check for output queue and eventually send its contents, one at a time.
-  // if (wq.size() > 0) {
-  //   debug( "comm-handler: Sending Xpres command <%s>...\n", wq.front().c_str());
-  //   int rv = v24Write(commport, (unsigned char*) wq.front().c_str(), wq.front().size());
-  //   if (rv == -1) {
-  //     // error occurred
-  //     error("comm-handler: serial error %d during write\n", v24QueryErrno(commport));
-  //     continue;
-  //   }
-  //   wq.pop();
-  // }
+  if (_writequeue.size() > 0) {
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Sending Xpres command <%s>...\n", _writequeue.front().c_str());
+    int rv = write(PortFD, (unsigned char*) _writequeue.front().c_str(), _writequeue.front().size());
+    if (rv == -1) {
+      // error occurred
+      DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error %d during write\n", strerror(errno));
+    }
+  _writequeue.pop();
+  }
 }
 
 void GapersScope::ParsePLCMessage(const std::string msg) {
   // Structure of a command:
-	// <stx><id>[MESSAGE]<sp><chs><etx>
-	//
-	// As in previous implementation of this procedure from which I borrowed
-	// most of the code, CRC check is silently ignored and can happily be
-	// filled with imaginary powers of 42.
-	char    syst;
-	char *  ps;
-	char    cmd[ 8];
+  // <stx><id>[MESSAGE]<sp><chs><etx>
+  //
+  // As in previous implementation of this procedure from which I borrowed
+  // most of the code, CRC check is silently ignored and can happily be
+  // filled with imaginary powers of 42.
+  char    syst;
+  char *  ps;
+  char    cmd[ 8];
 
-	if (msg.empty()) return;
+  if (msg.empty()) return;
 
-	// Convert 2 fields!
-	if( sscanf( msg.c_str(), "%c%s ", &syst, cmd) != 2) {
-		DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres syntax error: '%s'\n", msg.c_str());
-		return;
-	}
+  // Convert 2 fields!
+  if( sscanf( msg.c_str(), "%c%s ", &syst, cmd) != 2) {
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres syntax error: '%s'\n", msg.c_str());
+    return;
+  }
 
-	// Find out the read command
-	// Received ERROR command
-	if( strncasecmp( cmd, "mi", 2) == 0)
-	{
-		int val;
-		sscanf( msg.substr(4).c_str(), "%d ", &val);
-		DEBUGF(DBG_SCOPE, "comm-handler: Xpres ERROR %c %d\n", syst, val);
+  // Find out the read command
+  // Received ERROR command
+  if( strncasecmp( cmd, "mi", 2) == 0)
+  {
+    int val;
+    sscanf( msg.substr(4).c_str(), "%d ", &val);
+    DEBUGF(DBG_SCOPE, "comm-handler: Xpres ERROR %c %d\n", syst, val);
     // La documentazione dice che il codice di errore generato dal sistema
     // e comunicato tramite messaggio "mi" può variare tra 400 e 582. Il codice
     // 500 è marcato "READY" e viene inviato quando il sistema si accende.
     // TODO: eventually process error message
-	}
-	else
-	// Received VAR update command
-	if( strncasecmp( cmd, "vn", 2) == 0)
-	{
-		int val, var, whr;
-		sscanf( msg.substr(4).c_str(), "%d %d %d ", &val, &var, &whr);
-		DEBUGF(DBG_SCOPE, "comm-handler: Xpres EVENT %c %d %d %d\n", syst, var, val, whr);
-		// m_signal_event.emit(syst, var, val, whr);
+  }
+  else
+  // Received VAR update command
+  if( strncasecmp( cmd, "vn", 2) == 0)
+  {
+    int val, var, whr;
+    sscanf( msg.substr(4).c_str(), "%d %d %d ", &val, &var, &whr);
+    DEBUGF(DBG_SCOPE, "comm-handler: Xpres EVENT %c %d %d %d\n", syst, var, val, whr);
+    // m_signal_event.emit(syst, var, val, whr);
     // TODO: process var update command
     switch (syst) {
       case 1: // Var update in RA subsystem
       switch (var) {
         case 4:          // Stepper quote on PuntaGiri
-    		case 8:					 // Stepper quote
-          if (whr == 1) { // 1 means end of slewing
-            currentRA = targetRA;
-            raIsMoving = false;
-            if (! decIsMoving) {
-              TrackState = SCOPE_TRACKING;
-              DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-            }
-            NewRaDec(currentRA, currentDEC);
+        case 8:					 // Stepper quote
+        if (whr == 1) { // 1 means end of slewing
+          currentRA = targetRA;
+          raIsMoving = false;
+          if (! decIsMoving) {
+            TrackState = SCOPE_TRACKING;
+            DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
           }
+          NewRaDec(currentRA, currentDEC);
+        }
         break;
       }
       break;
       case 2: // Var update in DEC subsystem
       switch (var) {
         case 4:          // Stepper quote on PuntaGiri
-    		case 8:					 // Stepper quote
-          if (whr == 1) { // 1 means end of slewing
-            currentDEC = targetDEC;
-            decIsMoving = false;
-            if (! raIsMoving) {
-              TrackState = SCOPE_TRACKING;
-              DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-            }
-            NewRaDec(currentRA, currentDEC);
+        case 8:					 // Stepper quote
+        if (whr == 1) { // 1 means end of slewing
+          currentDEC = targetDEC;
+          decIsMoving = false;
+          if (! raIsMoving) {
+            TrackState = SCOPE_TRACKING;
+            DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
           }
+          NewRaDec(currentRA, currentDEC);
+        }
         break;
       }
       break;
     }
-	}
-	else
-	// Received ECHO of sent command
-	if( strncasecmp( cmd, "tx", 2) == 0)
-	{
-		DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
-		return;
-	}
-	else // Received ECHO or unhandled command
-	{
-		DEBUGF(DBG_SCOPE, "comm-handler: Xpres unhandled command: %s\n", msg.c_str());
-		return;
-	}
+  }
+  else
+  // Received ECHO of sent command
+  if( strncasecmp( cmd, "tx", 2) == 0)
+  {
+    DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
+    return;
+  }
+  else // Received ECHO or unhandled command
+  {
+    DEBUGF(DBG_SCOPE, "comm-handler: Xpres unhandled command: %s\n", msg.c_str());
+    return;
+  }
 
 }
 
@@ -1002,9 +1013,9 @@ void GapersScope::SendMove(int _system, long steps, long m_sq, long m_eq, long m
     case '1': raIsMoving = true; break;
     case '2': decIsMoving = true; break;
     default:
-      DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: requested movement on non-existent system %c.\n", _system);
-      return;
-      break;
+    DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: requested movement on non-existent system %c.\n", _system);
+    return;
+    break;
   }
   if( abs( m_giri ) > 0)	{
     DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: Movement > 2^23 steps on %c axis: %d %d %d %d.\n", _system, steps, m_sq, m_eq, m_giri);
@@ -1025,31 +1036,49 @@ void GapersScope::SendMove(int _system, long steps, long m_sq, long m_eq, long m
 
 void GapersScope::SendCommand( char syst, short int cmd, long val )
 {
-	if (isSimulation()) {
-		DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: simulation mode, not sending %ctx %hd %ld ...\n", syst, cmd, val);
-		return;
-	}
+  if (isSimulation()) {
+    DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: simulation mode, not sending %ctx %hd %ld ...\n", syst, cmd, val);
+    return;
+  }
 
-	if( !isConnected())
-		return;
-
-	int len;
-	char msg[ 64];
-	char chk[  8];
-	unsigned char msgCRC = 0;
-
-	// Build up the msg
-	len = sprintf( msg, "\x02%ctx %hd %ld ", syst, cmd, val);
-
-	// Calculate CRC
-	for( int k = 0; k < len; k++)
-		msgCRC ^= msg[ k];
-
-	// Append control info to end of msg
-	sprintf( chk, "%02X%02X\x03", len, msgCRC);
-	strcat( msg, chk);
-
-	// Queue XPRES msg
-	_writequeue.push(msg);
+  if( !isConnected())
   return;
+
+  int len;
+  char msg[ 64];
+  char chk[  8];
+  unsigned char msgCRC = 0;
+
+  // Build up the msg
+  len = sprintf( msg, "\x02%ctx %hd %ld ", syst, cmd, val);
+
+  // Calculate CRC
+  for( int k = 0; k < len; k++)
+  msgCRC ^= msg[ k];
+
+  // Append control info to end of msg
+  sprintf( chk, "%02X%02X\x03", len, msgCRC);
+  strcat( msg, chk);
+
+  // Queue XPRES msg
+  _writequeue.push(msg);
+  return;
+}
+
+void GapersScope::FinalizeMove() {
+  if (raIsMoving && decIsMoving) {
+    if ((raMovement.rotations > 0) && (decMovement.rotations > 0)) {
+      SendCommand('0', 14 , 1); // move both systems in the same manner
+      return;
+    } else if ((raMovement.rotations == 0) && (decMovement.rotations == 0)) {
+      SendCommand('0', 8 , 1); // move both systems in the same manner
+      return;
+    }
+  }
+  if (raIsMoving) {
+    SendCommand('1', (raMovement.rotations > 0) ? 14 : 8, 1);
+  }
+  if (decIsMoving) {
+    SendCommand('2', (decMovement.rotations > 0) ? 14 : 8, 1);
+  }
 }
