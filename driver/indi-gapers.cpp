@@ -201,19 +201,22 @@ bool GapersScope::Goto(double ra, double dec)
   // Find angular distance between current and target position
   // Distance is then expressed in range -180/180 degrees (short path)
   raDist = rangeDistance((targetRA - currentRA) * 15.0);
-  DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
-
-  // Update movement data for RA (also accounting for sidereal motion )
-  if (! _setMoveDataRA(raDist)) {
-    DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
-    return false;
-  };
+  // DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
+  if (raDist != 0) {
+    // Update movement data for RA (also accounting for sidereal motion )
+    if (! _setMoveDataRA(raDist)) {
+      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
+      return false;
+    }
+  }
 
   decDist = rangeDistance(targetDEC - currentDEC);
-  if (! _setMoveDataDEC(decDist)) {
-    DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
-    return false;
-  };
+  if (decDist != 0) {
+    if (! _setMoveDataDEC(decDist)) {
+      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
+      return false;
+    }
+  }
 
   // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
   movementStart = time(NULL) + 5;
@@ -992,4 +995,61 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
 		return;
 	}
 
+}
+
+void GapersScope::SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri) {
+  switch (_system) {
+    case '1': raIsMoving = true; break;
+    case '2': decIsMoving = true; break;
+    default:
+      DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: requested movement on non-existent system %c.\n", _system);
+      return;
+      break;
+  }
+  if( abs( m_giri ) > 0)	{
+    DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: Movement > 2^23 steps on %c axis: %d %d %d %d.\n", _system, steps, m_sq, m_eq, m_giri);
+    SendCommand(_system, 10, m_sq);
+    SendCommand(_system, 9, 5);
+    SendCommand(_system, 5, 1);
+    SendCommand(_system, 10, m_eq);
+    SendCommand(_system, 9, 6);
+    SendCommand(_system, 5, 1);
+    SendCommand(_system, 10, m_giri);
+    SendCommand(_system, 9, 7);
+    SendCommand(_system, 5, 1);
+  } else {
+    SendCommand(_system, 15, steps);
+  }
+  return;
+}
+
+void GapersScope::SendCommand( char syst, short int cmd, long val )
+{
+	if (isSimulation()) {
+		DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: simulation mode, not sending %ctx %hd %ld ...\n", syst, cmd, val);
+		return;
+	}
+
+	if( !isConnected())
+		return;
+
+	int len;
+	char msg[ 64];
+	char chk[  8];
+	unsigned char msgCRC = 0;
+
+	// Build up the msg
+	len = sprintf( msg, "\x02%ctx %hd %ld ", syst, cmd, val);
+
+	// Calculate CRC
+	for( int k = 0; k < len; k++)
+		msgCRC ^= msg[ k];
+
+	// Append control info to end of msg
+	sprintf( chk, "%02X%02X\x03", len, msgCRC);
+	strcat( msg, chk);
+
+	// Queue XPRES msg
+	_writequeue.push(msg);
+  return;
 }
