@@ -177,7 +177,7 @@ bool GapersScope::Disconnect()
 ***************************************************************************************/
 const char * GapersScope::getDefaultName()
 {
-  return "GAPers Scope";
+  return "GAPers Telescope";
 }
 /**************************************************************************************
 ** Client is asking us to slew to a new position
