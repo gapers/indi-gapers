@@ -14,6 +14,7 @@ with an INDI-compatible client.
 #include <inditelescope.h>
 #include <libnova.h>
 #include <string>
+#include <unistd.h>
 
 const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
 const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
@@ -124,7 +125,7 @@ bool GapersScope::Connect()
   bool rc=false;
 
   if (isConnected())
-    return true;
+  return true;
 
   rc=Connect(PortT[0].text, atoi(IUFindOnSwitch(&BaudRateSP)->name));
   if (rc) {
@@ -164,6 +165,10 @@ bool GapersScope::Connect(const char *port, uint16_t baud) {
 ***************************************************************************************/
 bool GapersScope::Disconnect()
 {
+  if (! isSimulation() ) {
+    tty_disconnect(PortFD);
+    DEBUG(INDI::Logger::DBG_WARNING, "Telescope is offline.");
+  }
   DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope disconnected successfully!");
   return true;
 }
@@ -241,45 +246,38 @@ bool GapersScope::Abort()
 ***************************************************************************************/
 bool GapersScope::ReadScopeStatus()
 {
-  // static buffer for serial reading
-  static std::string serial_queue;
   /* If slewing, we simulate telescope movement. */
   switch (TrackState)
   {
     case SCOPE_SLEWING:
-    time_t currentTime;
-    time(&currentTime);
-    double offset;
-    double elapsed;
-    elapsed = difftime(currentTime, movementStart);
-    if (elapsed > 0) {
-      // interpolate RA position
-      if (elapsed < raMovement.time) {
-        offset = ( raMovement.angle * elapsed ) / raMovement.time;
-        currentRA = targetRA - ((raMovement.angle - offset)/15.0);
+      time_t currentTime;
+      time(&currentTime);
+      double offset;
+      double elapsed;
+      elapsed = difftime(currentTime, movementStart);
+      if (elapsed > 0) {
+        // interpolate RA position
+        if (elapsed < raMovement.time) {
+          offset = ( raMovement.angle * elapsed ) / raMovement.time;
+          currentRA = targetRA - ((raMovement.angle - offset)/15.0);
+        }
+        if (elapsed < decMovement.time) {
+          offset = ( decMovement.angle * elapsed ) / decMovement.time;
+          currentDEC = targetDEC - ( decMovement.angle - offset );
+        }
       }
-      if (elapsed < decMovement.time) {
-        offset = ( decMovement.angle * elapsed ) / decMovement.time;
-        currentDEC = targetDEC - ( decMovement.angle - offset );
+      if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+        currentRA = targetRA;
+        currentDEC = targetDEC;
+        // Let's set state to TRACKING
+        TrackState = SCOPE_TRACKING;
+        DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
       }
-    }
-    if ((elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
-      currentRA = targetRA;
-      currentDEC = targetDEC;
-      // Let's set state to TRACKING
-      TrackState = SCOPE_TRACKING;
-      DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-    }
-    break;
+      NewRaDec(currentRA, currentDEC);
+      break;
     default:
-    break;
+      break;
   }
-  char RAStr[64], DecStr[64];
-  // Parse the RA/DEC into strings
-  fs_sexa(RAStr, currentRA, 2, 3600);
-  fs_sexa(DecStr, currentDEC, 2, 3600);
-  DEBUGF(DBG_SCOPE, "Current RA: %s Current DEC: %s", RAStr, DecStr );
-  NewRaDec(currentRA, currentDEC);
   return true;
 }
 
@@ -533,23 +531,29 @@ bool GapersScope::updateProperties()
 }
 
 void GapersScope::NewRaDec(double ra,double dec) {
+  char RAStr[64], DecStr[64];
+  // Parse the RA/DEC into strings
+  fs_sexa(RAStr, ra, 2, 3600);
+  fs_sexa(DecStr, dec, 2, 3600);
+  DEBUGF(DBG_SCOPE, "Current RA: %s Current DEC: %s", RAStr, DecStr );
+
   switch(TrackState)
   {
     case SCOPE_PARKED:
     case SCOPE_IDLE:
-    Eq2kNP.s=IPS_IDLE;
-    break;
+      Eq2kNP.s=IPS_IDLE;
+      break;
 
     case SCOPE_SLEWING:
-    Eq2kNP.s=IPS_BUSY;
-    break;
+      Eq2kNP.s=IPS_BUSY;
+      break;
 
     case SCOPE_TRACKING:
-    Eq2kNP.s=IPS_OK;
-    break;
+      Eq2kNP.s=IPS_OK;
+      break;
 
     default:
-    break;
+      break;
   }
 
   ln_equ_posn jnow, j2k;
@@ -614,9 +618,9 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
           if((sw != NULL)&&( sw->s==ISS_ON )) {
             rc=Sync(ra,dec);
             if (rc)
-              Eq2kNP.s = lastEq2kState = IPS_OK;
+            Eq2kNP.s = lastEq2kState = IPS_OK;
             else
-              Eq2kNP.s = lastEq2kState = IPS_ALERT;
+            Eq2kNP.s = lastEq2kState = IPS_ALERT;
             IDSetNumber(&Eq2kNP, NULL);
             return rc;
           }
@@ -624,9 +628,9 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         // Issue GOTO
         rc=Goto(ra,dec);
         if (rc)
-          Eq2kNP.s = lastEq2kState = IPS_BUSY;
+        Eq2kNP.s = lastEq2kState = IPS_BUSY;
         else
-          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+        Eq2kNP.s = lastEq2kState = IPS_ALERT;
         IDSetNumber(&Eq2kNP, NULL);
       }
       return rc;
@@ -640,7 +644,11 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
 #define PARITY_EVEN    1
 #define PARITY_ODD     2
 #include <fcntl.h>
-
+/**
+* Reimplemented from indicom.h/indicom.c in order to open and access
+* serial port in nonblocking mode. This is mandatory because commands to
+* and responses from PLC must be processed asynchronously.
+*/
 int GapersScope::tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd) {
   int t_fd=-1;
   char msg[80];
@@ -827,4 +835,161 @@ int GapersScope::tty_connect(const char *device, int bit_rate, int word_size, in
   *fd = t_fd;
   /* return success */
   return TTY_OK;
+}
+
+void GapersScope::commHandler() {
+  static std::string queue_ = ""; // read buffer
+
+  // init consumer automa
+  enum e_cstate {
+    STARTWAITING    = 1,
+    READINGCOMMAND  = 2
+  };
+  static e_cstate c_state = STARTWAITING;
+
+  unsigned char inbuf[80]; // small buffer for reception, should hold most commands
+  std::string rs = ""; // local buffer for holding a complete command
+
+  if (isSimulation()) // No interaction with RS232 in simulation mode
+    return;
+
+  int rlen=0; // number of chars read by read below
+  rlen = read(PortFD, inbuf, 80);
+  if (rlen == -1) {
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %d\n", PortT[0].text, strerror(errno));
+    return;
+  }
+  for (int bufp=0; bufp < rlen; ++bufp) {
+    unsigned char cbuf=inbuf[bufp];
+    switch (c_state) {
+      case STARTWAITING:
+        if (cbuf == ASCII_STX) {
+          queue_.clear();
+          c_state = READINGCOMMAND;
+        }
+      break;
+      case READINGCOMMAND:
+        if (cbuf == ASCII_STX) {
+          // if a new Start char is found before End char,
+          // reset queue, since we've likely got a transmission
+          // error anyway.
+          queue_.clear();
+        } else if (cbuf == ASCII_ETX) {
+          rs = queue_;
+          queue_.clear();
+
+          c_state = STARTWAITING;
+        } else {
+          queue_.push_back(cbuf);
+        }
+      break;
+    }
+    // we process the command read from line outside main parsing block, in
+    // order to release mutex lock on queue_ as early as possible
+    if (!rs.empty()) {
+      ParsePLCMessage(rs);
+      rs.clear();
+    }
+  }
+  // check for output queue and eventually send its contents, one at a time.
+  // if (wq.size() > 0) {
+  //   debug( "comm-handler: Sending Xpres command <%s>...\n", wq.front().c_str());
+  //   int rv = v24Write(commport, (unsigned char*) wq.front().c_str(), wq.front().size());
+  //   if (rv == -1) {
+  //     // error occurred
+  //     error("comm-handler: serial error %d during write\n", v24QueryErrno(commport));
+  //     continue;
+  //   }
+  //   wq.pop();
+  // }
+}
+
+void GapersScope::ParsePLCMessage(const std::string msg) {
+  // Structure of a command:
+	// <stx><id>[MESSAGE]<sp><chs><etx>
+	//
+	// As in previous implementation of this procedure from which I borrowed
+	// most of the code, CRC check is silently ignored and can happily be
+	// filled with imaginary powers of 42.
+	char    syst;
+	char *  ps;
+	char    cmd[ 8];
+
+	if (msg.empty()) return;
+
+	// Convert 2 fields!
+	if( sscanf( msg.c_str(), "%c%s ", &syst, cmd) != 2) {
+		DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres syntax error: '%s'\n", msg.c_str());
+		return;
+	}
+
+	// Find out the read command
+	// Received ERROR command
+	if( strncasecmp( cmd, "mi", 2) == 0)
+	{
+		int val;
+		sscanf( msg.substr(4).c_str(), "%d ", &val);
+		DEBUGF(DBG_SCOPE, "comm-handler: Xpres ERROR %c %d\n", syst, val);
+    // La documentazione dice che il codice di errore generato dal sistema
+    // e comunicato tramite messaggio "mi" può variare tra 400 e 582. Il codice
+    // 500 è marcato "READY" e viene inviato quando il sistema si accende.
+    // TODO: eventually process error message
+	}
+	else
+	// Received VAR update command
+	if( strncasecmp( cmd, "vn", 2) == 0)
+	{
+		int val, var, whr;
+		sscanf( msg.substr(4).c_str(), "%d %d %d ", &val, &var, &whr);
+		DEBUGF(DBG_SCOPE, "comm-handler: Xpres EVENT %c %d %d %d\n", syst, var, val, whr);
+		// m_signal_event.emit(syst, var, val, whr);
+    // TODO: process var update command
+    switch (syst) {
+      case 1: // Var update in RA subsystem
+      switch (var) {
+        case 4:          // Stepper quote on PuntaGiri
+    		case 8:					 // Stepper quote
+          if (whr == 1) { // 1 means end of slewing
+            currentRA = targetRA;
+            raIsMoving = false;
+            if (! decIsMoving) {
+              TrackState = SCOPE_TRACKING;
+              DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+            }
+            NewRaDec(currentRA, currentDEC);
+          }
+        break;
+      }
+      break;
+      case 2: // Var update in DEC subsystem
+      switch (var) {
+        case 4:          // Stepper quote on PuntaGiri
+    		case 8:					 // Stepper quote
+          if (whr == 1) { // 1 means end of slewing
+            currentDEC = targetDEC;
+            decIsMoving = false;
+            if (! raIsMoving) {
+              TrackState = SCOPE_TRACKING;
+              DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+            }
+            NewRaDec(currentRA, currentDEC);
+          }
+        break;
+      }
+      break;
+    }
+	}
+	else
+	// Received ECHO of sent command
+	if( strncasecmp( cmd, "tx", 2) == 0)
+	{
+		DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
+		return;
+	}
+	else // Received ECHO or unhandled command
+	{
+		DEBUGF(DBG_SCOPE, "comm-handler: Xpres unhandled command: %s\n", msg.c_str());
+		return;
+	}
+
 }

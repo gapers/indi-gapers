@@ -40,11 +40,15 @@ private:
   double currentDEC;
   double targetRA;
   double targetDEC;
+  bool raIsMoving;
+  bool decIsMoving;
   unsigned int DBG_SCOPE;
   IPState lastEq2kState;
 
   // Serial handling methods and properties
   int tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd);
+  void commHandler();
+  void ParsePLCMessage(const std::string msg);
 
   // Properties representing encoder steps and stepper axle rounds used in
   // axis movement. RA and DEC share the same structure for tidyness
@@ -64,4 +68,16 @@ private:
   bool _setMoveDataDEC( double );
   bool _rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
 };
+
+// ascii definitions
+#define ASCII_STX               0x02            // Start of text
+#define ASCII_ETX               0x03            // End of text
+
+#define ASCII_BEL               0x07
+#define ASCII_BS                0x08
+#define ASCII_LF                0x0A
+#define ASCII_CR                0x0D
+#define ASCII_XON               0x11
+#define ASCII_XOFF              0x13
+
 #endif // GAPERSSCOPE_H
