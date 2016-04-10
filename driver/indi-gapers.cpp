@@ -15,6 +15,12 @@ with an INDI-compatible client.
 #include <libnova.h>
 #include <string>
 #include <unistd.h>
+// Serial connection support
+#include <termios.h>
+#define PARITY_NONE    0
+#define PARITY_EVEN    1
+#define PARITY_ODD     2
+#include <fcntl.h>
 
 const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
 const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
@@ -151,7 +157,7 @@ bool GapersScope::Connect(const char *port, uint16_t baud) {
   }
 
   DEBUGF(INDI::Logger::DBG_SESSION, "GAPers Scope connecting to %s at %dbps.", port, baud);
-  if ( (connectrc = tty_connect(port, baud, 8, 0, 1, &PortFD)) != TTY_OK) {
+  if ( (connectrc = tty_connect(port, baud, 8, PARITY_EVEN, 1, &PortFD)) != TTY_OK) {
     tty_error_msg(connectrc, errorMsg, MAXRBUF);
     DEBUGF(INDI::Logger::DBG_SESSION, "Failed to connect to port %s. Error: %s", port, errorMsg);
     return false;
@@ -294,6 +300,8 @@ bool GapersScope::ReadScopeStatus()
     default:
     break;
   }
+  // Process serial communication with PLC
+  commHandler();
   return true;
 }
 
@@ -660,11 +668,6 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
   return INDI::Telescope::ISNewNumber(dev,name,values,names,n);
 }
 
-#include <termios.h>
-#define PARITY_NONE    0
-#define PARITY_EVEN    1
-#define PARITY_ODD     2
-#include <fcntl.h>
 /**
 * Reimplemented from indicom.h/indicom.c in order to open and access
 * serial port in nonblocking mode. This is mandatory because commands to
@@ -760,8 +763,9 @@ int GapersScope::tty_connect(const char *device, int bit_rate, int word_size, in
   set no flow control word size, parity and stop bits.
   Also don't hangup automatically and ignore modem status.
   Finally enable receiving characters. */
-  tty_setting.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL | CRTSCTS);
-  tty_setting.c_cflag |= (CLOCAL | CREAD);
+  // tty_setting.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL | CRTSCTS);
+  tty_setting.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL );
+  tty_setting.c_cflag |= (CLOCAL | CREAD | CRTSCTS );
 
   /* word size */
   switch (word_size) {
@@ -879,6 +883,8 @@ void GapersScope::commHandler() {
   if (rlen == -1) {
     DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %d\n", PortT[0].text, strerror(errno));
     return;
+  } else if (rlen > 0) {
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: read %d bytes from %s: %s.\n", rlen, PortT[0].text, inbuf);
   }
   for (int bufp=0; bufp < rlen; ++bufp) {
     unsigned char cbuf=inbuf[bufp];
@@ -908,6 +914,7 @@ void GapersScope::commHandler() {
     // we process the command read from line outside main parsing block, in
     // order to release mutex lock on queue_ as early as possible
     if (!rs.empty()) {
+      DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: parse message: %s.\n", rs.c_str());
       ParsePLCMessage(rs);
       rs.clear();
     }
@@ -919,8 +926,10 @@ void GapersScope::commHandler() {
     if (rv == -1) {
       // error occurred
       DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error %d during write\n", strerror(errno));
+    } else {
+      DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: %d bytes written.\n", rv);
     }
-  _writequeue.pop();
+    _writequeue.pop();
   }
 }
 
@@ -949,7 +958,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   {
     int val;
     sscanf( msg.substr(4).c_str(), "%d ", &val);
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres ERROR %c %d\n", syst, val);
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres ERROR %c %d\n", syst, val);
     // La documentazione dice che il codice di errore generato dal sistema
     // e comunicato tramite messaggio "mi" può variare tra 400 e 582. Il codice
     // 500 è marcato "READY" e viene inviato quando il sistema si accende.
@@ -961,17 +970,18 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   {
     int val, var, whr;
     sscanf( msg.substr(4).c_str(), "%d %d %d ", &val, &var, &whr);
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres EVENT %c %d %d %d\n", syst, var, val, whr);
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres EVENT %c %d %d %d\n", syst, var, val, whr);
     // m_signal_event.emit(syst, var, val, whr);
     // TODO: process var update command
     switch (syst) {
-      case 1: // Var update in RA subsystem
+      case '1': // Var update in RA subsystem
       switch (var) {
         case 4:          // Stepper quote on PuntaGiri
         case 8:					 // Stepper quote
         if (whr == 1) { // 1 means end of slewing
           currentRA = targetRA;
           raIsMoving = false;
+          DEBUG(INDI::Logger::DBG_SESSION, "RA slew is complete.");
           if (! decIsMoving) {
             TrackState = SCOPE_TRACKING;
             DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
@@ -981,13 +991,14 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
         break;
       }
       break;
-      case 2: // Var update in DEC subsystem
+      case '2': // Var update in DEC subsystem
       switch (var) {
         case 4:          // Stepper quote on PuntaGiri
         case 8:					 // Stepper quote
         if (whr == 1) { // 1 means end of slewing
           currentDEC = targetDEC;
           decIsMoving = false;
+          DEBUG(INDI::Logger::DBG_SESSION, "DEC slew is complete.");
           if (! raIsMoving) {
             TrackState = SCOPE_TRACKING;
             DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
@@ -1003,12 +1014,12 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // Received ECHO of sent command
   if( strncasecmp( cmd, "tx", 2) == 0)
   {
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres echo received: %s\n", msg.c_str());
     return;
   }
   else // Received ECHO or unhandled command
   {
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres unhandled command: %s\n", msg.c_str());
+    DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres unhandled command: %s\n", msg.c_str());
     return;
   }
 
@@ -1048,7 +1059,7 @@ void GapersScope::SendCommand( char syst, short int cmd, long val )
   }
 
   if( !isConnected())
-  return;
+    return;
 
   int len;
   char msg[ 64];
@@ -1068,6 +1079,7 @@ void GapersScope::SendCommand( char syst, short int cmd, long val )
 
   // Queue XPRES msg
   _writequeue.push(msg);
+  DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: queueing message %s ...\n", msg);
   return;
 }
 
