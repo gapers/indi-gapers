@@ -113,7 +113,7 @@ bool GapersScope::initProperties()
 
   IUFillSwitch(&domesyncS[0], "DOMEAUTO", "Auto", ISS_ON);
   IUFillSwitch(&domesyncS[1], "DOMEMANUAL", "Manual", ISS_OFF);
-  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
   addSimulationControl();
   addDebugControl();
