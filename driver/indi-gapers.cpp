@@ -16,6 +16,12 @@ with an INDI-compatible client.
 #include <string>
 #include <unistd.h>
 
+#include <termios.h>
+#define PARITY_NONE    0
+#define PARITY_EVEN    1
+#define PARITY_ODD     2
+#include <fcntl.h>
+
 const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
 const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
 const int   POLLMS = 250;                      /* poll period, ms */
@@ -135,8 +141,13 @@ bool GapersScope::Connect()
     SetTimer(POLLMS);
     DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope connected successfully!");
   } else {
-    DEBUG(INDI::Logger::DBG_SESSION, "Error setting up connection with GAPers Scope.");
+    DEBUG(INDI::Logger::DBG_SESSION, "Error setting up connection with GAPers telescope.");
   }
+
+  // Init serial communication handler buffers and state
+  _writequeue = std::queue<std::string>();
+  _readbuffer = "";
+  c_state = STARTWAITING;
 
   return rc;
 }
@@ -151,7 +162,7 @@ bool GapersScope::Connect(const char *port, uint16_t baud) {
   }
 
   DEBUGF(INDI::Logger::DBG_SESSION, "GAPers Scope connecting to %s at %dbps.", port, baud);
-  if ( (connectrc = tty_connect(port, baud, 8, 0, 1, &PortFD)) != TTY_OK) {
+  if ( (connectrc = tty_connect(port, baud, 8, PARITY_EVEN, 1, &PortFD)) != TTY_OK) {
     tty_error_msg(connectrc, errorMsg, MAXRBUF);
     DEBUGF(INDI::Logger::DBG_SESSION, "Failed to connect to port %s. Error: %s", port, errorMsg);
     return false;
@@ -294,6 +305,7 @@ bool GapersScope::ReadScopeStatus()
     default:
     break;
   }
+  // Process serial communication with PLC
   commHandler();
   return true;
 }
@@ -661,11 +673,6 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
   return INDI::Telescope::ISNewNumber(dev,name,values,names,n);
 }
 
-#include <termios.h>
-#define PARITY_NONE    0
-#define PARITY_EVEN    1
-#define PARITY_ODD     2
-#include <fcntl.h>
 /**
 * Reimplemented from indicom.h/indicom.c in order to open and access
 * serial port in nonblocking mode. This is mandatory because commands to
@@ -761,8 +768,8 @@ int GapersScope::tty_connect(const char *device, int bit_rate, int word_size, in
   set no flow control word size, parity and stop bits.
   Also don't hangup automatically and ignore modem status.
   Finally enable receiving characters. */
-  tty_setting.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL | CRTSCTS);
-  tty_setting.c_cflag |= (CLOCAL | CREAD);
+  tty_setting.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL );
+  tty_setting.c_cflag |= (CLOCAL | CREAD | CRTSCTS );
 
   /* word size */
   switch (word_size) {
@@ -860,15 +867,6 @@ int GapersScope::tty_connect(const char *device, int bit_rate, int word_size, in
 }
 
 void GapersScope::commHandler() {
-  static std::string queue_ = ""; // read buffer
-
-  // init consumer automa
-  enum e_cstate {
-    STARTWAITING    = 1,
-    READINGCOMMAND  = 2
-  };
-  static e_cstate c_state = STARTWAITING;
-
   unsigned char inbuf[80]; // small buffer for reception, should hold most commands
   std::string rs = ""; // local buffer for holding a complete command
 
@@ -880,6 +878,7 @@ void GapersScope::commHandler() {
     rlen = read(PortFD, inbuf, 80);
     if (rlen == -1) {
       DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %d\n", PortT[0].text, strerror(errno));
+      Disconnect();
       return;
     }
     for (int bufp=0; bufp < rlen; ++bufp) {
@@ -887,7 +886,7 @@ void GapersScope::commHandler() {
       switch (c_state) {
         case STARTWAITING:
         if (cbuf == ASCII_STX) {
-          queue_.clear();
+          _readbuffer.clear();
           c_state = READINGCOMMAND;
         }
         break;
@@ -896,19 +895,17 @@ void GapersScope::commHandler() {
           // if a new Start char is found before End char,
           // reset queue, since we've likely got a transmission
           // error anyway.
-          queue_.clear();
+          _readbuffer.clear();
         } else if (cbuf == ASCII_ETX) {
-          rs = queue_;
-          queue_.clear();
+          rs = _readbuffer;
+          _readbuffer.clear();
 
           c_state = STARTWAITING;
         } else {
-          queue_.push_back(cbuf);
+          _readbuffer.push_back(cbuf);
         }
         break;
       }
-      // we process the command read from line outside main parsing block, in
-      // order to release mutex lock on queue_ as early as possible
       if (!rs.empty()) {
         ParsePLCMessage(rs);
         rs.clear();
@@ -921,6 +918,9 @@ void GapersScope::commHandler() {
       if (rv == -1) {
         // error occurred
         DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error %d during write\n", strerror(errno));
+        // empty queue and abort processing
+        Disconnect();
+        return;
       }
     _writequeue.pop();
     }

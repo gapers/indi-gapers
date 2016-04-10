@@ -59,6 +59,12 @@ private:
   void SendCommand( char syst, short int cmd, long val );
 
   std::queue<std::string> _writequeue;
+  std::string _readbuffer = "";
+  enum e_cstate {
+    STARTWAITING    = 1,
+    READINGCOMMAND  = 2
+  };
+  e_cstate c_state = STARTWAITING;
 
   // Properties representing encoder steps and stepper axle rounds used in
   // axis movement. RA and DEC share the same structure for tidyness
