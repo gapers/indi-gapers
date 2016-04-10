@@ -294,6 +294,7 @@ bool GapersScope::ReadScopeStatus()
     default:
     break;
   }
+  commHandler();
   return true;
 }
 
@@ -967,7 +968,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
     // m_signal_event.emit(syst, var, val, whr);
     // TODO: process var update command
     switch (syst) {
-      case 1: // Var update in RA subsystem
+      case '1': // Var update in RA subsystem
       switch (var) {
         case 4:          // Stepper quote on PuntaGiri
         case 8:					 // Stepper quote
@@ -983,7 +984,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
         break;
       }
       break;
-      case 2: // Var update in DEC subsystem
+      case '2': // Var update in DEC subsystem
       switch (var) {
         case 4:          // Stepper quote on PuntaGiri
         case 8:					 // Stepper quote
