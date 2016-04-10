@@ -89,7 +89,7 @@ GapersScope::GapersScope()
   // We add an additional debug level so we can log verbose scope status
   DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
   // capability = TELESCOPE_CAN_SYNC;
-  SetTelescopeCapability(TELESCOPE_CAN_SYNC, 0); // Telescope can sync and has a single slew rate
+  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION, 0); // Telescope can sync and has a single slew rate
   // TelescopeCapability cap;
   // cap.canPark = false;
   // cap.canSync = true;
@@ -111,7 +111,9 @@ bool GapersScope::initProperties()
   IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
   IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
 
-  INDI::Telescope::initProperties();
+  IUFillSwitch(&domesyncS[0], "DOMEAUTO", "Auto", ISS_ON);
+  IUFillSwitch(&domesyncS[1], "DOMEMANUAL", "Manual", ISS_OFF);
+  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
 
   addSimulationControl();
   addDebugControl();
@@ -213,7 +215,7 @@ bool GapersScope::Goto(double ra, double dec)
       DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
       return false;
     }
-    SendMove(1, raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
+    SendMove('1', raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
   }
 
   decDist = rangeDistance(targetDEC - currentDEC);
@@ -222,7 +224,7 @@ bool GapersScope::Goto(double ra, double dec)
       DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
       return false;
     }
-    SendMove(2, decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
+    SendMove('2', decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
   }
 
   if (raIsMoving || decIsMoving) {
@@ -525,6 +527,8 @@ void GapersScope::ISGetProperties (const char *dev) {
   if(isConnected()) {
     // Add eq coord J2000 number
     defineNumber(&Eq2kNP);
+    // Add dome properties
+    defineSwitch(&domesyncSP);
   }
 
 }
@@ -535,10 +539,12 @@ bool GapersScope::updateProperties()
   if(isConnected())
   {
     defineNumber(&Eq2kNP);
+    defineSwitch(&domesyncSP);
   }
   else
   {
     deleteProperty(Eq2kNP.name);
+    deleteProperty(domesyncSP.name);
   }
 
   return INDI::Telescope::updateProperties();

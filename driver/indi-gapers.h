@@ -24,6 +24,9 @@ protected:
   INumberVectorProperty Eq2kNP;
   INumber Eq2kN[2];
 
+  ISwitchVectorProperty domesyncSP;
+  ISwitch domesyncS[2];
+
   // General device functions
   bool Connect();
   bool Connect(const char *port, uint16_t baud);
