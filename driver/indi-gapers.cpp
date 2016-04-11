@@ -328,7 +328,8 @@ bool GapersScope::ReadScopeStatus()
   if (eqa.lng > 180.) eqa.lng -= 360.;
   eqa.lat = LocationN[LOCATION_LATITUDE].value;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  psn.az += psn.az+180.;
+  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
+  psn.az += 180.;
   while (psn.az > 360.) psn.az -= 360.;
   while (psn.az < 0.) psn.az += 360.;
   NewAltAz(psn.alt, psn.az);
