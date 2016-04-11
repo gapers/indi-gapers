@@ -37,6 +37,7 @@ protected:
   bool Disconnect();
   const char *getDefaultName();
   void NewRaDec(double ra,double dec);
+  void NewAltAz(double alt, double az);
   virtual bool initProperties();
   virtual bool updateProperties();
   // Telescoe specific functions

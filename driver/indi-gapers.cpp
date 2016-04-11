@@ -322,9 +322,17 @@ bool GapersScope::ReadScopeStatus()
   ln_lnlat_posn eqa;
   ln_hrz_posn psn;
 
-  eqc.ra = currentRA /15.0;
+  eqc.ra = currentRA * 15.0;
   eqc.dec = currentDEC;
-  eqa.lati
+  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  if (eqa.lng > 180.) eqa.lng -= 360.;
+  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
+  psn.az += psn.az+180.;
+  while (psn.az > 360.) psn.az -= 360.;
+  while (psn.az < 0.) psn.az += 360.;
+  NewAltAz(psn.alt, psn.az);
+
   // Process serial communication with PLC
   commHandler();
   return true;
@@ -585,6 +593,15 @@ bool GapersScope::updateProperties()
   }
 
   return INDI::Telescope::updateProperties();
+}
+
+void GapersScope::NewAltAz(double alt, double az) {
+  AaN[AXIS_ALT].value = alt;
+  AaN[AXIS_AZ].value = az;
+  AaNP.s = IPS_IDLE;
+  IDSetNumber(&AaNP, NULL);
+
+  // TODO: Move dome accordingly
 }
 
 void GapersScope::NewRaDec(double ra,double dec) {
