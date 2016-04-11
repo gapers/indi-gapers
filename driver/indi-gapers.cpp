@@ -324,6 +324,7 @@ bool GapersScope::ReadScopeStatus()
 
   eqc.ra = currentRA /15.0;
   eqc.dec = currentDEC;
+  eqa.lati
   // Process serial communication with PLC
   commHandler();
   return true;
