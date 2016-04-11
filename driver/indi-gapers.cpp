@@ -117,6 +117,11 @@ bool GapersScope::initProperties()
   IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
   IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
 
+  // Add Alt Az coordinates
+  IUFillNumber(&AaN[AXIS_ALT], "ALT", "Alt (dd:mm:ss)","%010.6m",-90,90,0,0);
+  IUFillNumber(&AaN[AXIS_AZ], "AZ", "Az (dd:mm:ss)","%010.6m",0,360,0,0);
+  IUFillNumberVector(&AaNP,AaN,2,getDeviceName(),"ALTAZ_COORD","AltAzimuthal Coordinates",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
+
   IUFillSwitch(&domesyncS[0], "DOMEAUTO", "Auto", ISS_ON);
   IUFillSwitch(&domesyncS[1], "DOMEMANUAL", "Manual", ISS_OFF);
   IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
@@ -305,6 +310,20 @@ bool GapersScope::ReadScopeStatus()
     default:
     break;
   }
+  // Update AltAzimuthal Coordinates
+  /*
+      void ln_get_hrz_from_equ	(	struct ln_equ_posn * 	object,
+        struct ln_lnlat_posn * 	observer,
+        double 	JD,
+        struct ln_hrz_posn * 	position
+        )
+  */
+  ln_equ_posn eqc;
+  ln_lnlat_posn eqa;
+  ln_hrz_posn psn;
+
+  eqc.ra = currentRA /15.0;
+  eqc.dec = currentDEC;
   // Process serial communication with PLC
   commHandler();
   return true;
@@ -540,6 +559,8 @@ void GapersScope::ISGetProperties (const char *dev) {
   if(isConnected()) {
     // Add eq coord J2000 number
     defineNumber(&Eq2kNP);
+    // Add AltAzimuthal coord
+    defineNumber(&AaNP);
     // Add dome properties
     defineSwitch(&domesyncSP);
   }
@@ -552,11 +573,13 @@ bool GapersScope::updateProperties()
   if(isConnected())
   {
     defineNumber(&Eq2kNP);
+    defineNumber(&AaNP);
     defineSwitch(&domesyncSP);
   }
   else
   {
     deleteProperty(Eq2kNP.name);
+    deleteProperty(AaNP.name);
     deleteProperty(domesyncSP.name);
   }
 

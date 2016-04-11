@@ -24,6 +24,10 @@ protected:
   INumberVectorProperty Eq2kNP;
   INumber Eq2kN[2];
 
+  // Alt Az coordinates
+  INumberVectorProperty AaNP;
+  INumber AaN[2];
+
   ISwitchVectorProperty domesyncSP;
   ISwitch domesyncS[2];
 
