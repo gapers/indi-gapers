@@ -291,11 +291,11 @@ bool GapersScope::ReadScopeStatus()
       // interpolate RA position
       if (elapsed < raMovement.time) {
         offset = ( raMovement.angle * elapsed ) / raMovement.time;
-        currentRA = targetRA - ((raMovement.angle - offset)/15.0);
+        currentRA = targetRA + ((raMovement.angle - offset)/15.0);
       }
       if (elapsed < decMovement.time) {
         offset = ( decMovement.angle * elapsed ) / decMovement.time;
-        currentDEC = targetDEC - ( decMovement.angle - offset );
+        currentDEC = targetDEC + ( decMovement.angle - offset );
       }
     }
     if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
