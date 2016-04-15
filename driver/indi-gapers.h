@@ -70,6 +70,7 @@ private:
     READINGCOMMAND  = 2
   };
   e_cstate c_state = STARTWAITING;
+  bool waitForEcho = false;
 
   // Properties representing encoder steps and stepper axle rounds used in
   // axis movement. RA and DEC share the same structure for tidyness

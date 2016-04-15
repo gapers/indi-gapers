@@ -153,6 +153,7 @@ bool GapersScope::Connect()
   _writequeue = std::queue<std::string>();
   _readbuffer = "";
   c_state = STARTWAITING;
+  waitForEcho = false;
 
   return rc;
 }
@@ -389,7 +390,7 @@ bool GapersScope::_setMoveDataRA( double distance ) {
   raMovement.endQuote = 0;
   raMovement.rotations = 0;
   raMovement.time = tm;
-  if (raMovement.steps > 80*12800) {
+  if (abs(raMovement.steps) > 80*12800) {
     return _rotationsCalc(raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
   }
   return true;
@@ -434,7 +435,7 @@ bool GapersScope::_setMoveDataDEC( double distance ) {
   decMovement.endQuote = 0;
   decMovement.rotations = 0;
   decMovement.time = tm;
-  if (decMovement.steps > 80*12800) {
+  if (abs(decMovement.steps) > 80*12800) {
     return _rotationsCalc(decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
   }
   return true;
@@ -954,7 +955,7 @@ void GapersScope::commHandler() {
       }
     }
     // check for output queue and eventually send its contents, one at a time.
-    if (_writequeue.size() > 0) {
+    if ((!waitForEcho) && (_writequeue.size() > 0)) {
       DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Sending Xpres command <%s>...\n", _writequeue.front().c_str());
       int rv = write(PortFD, (unsigned char*) _writequeue.front().c_str(), _writequeue.front().size());
       if (rv == -1) {
@@ -965,6 +966,7 @@ void GapersScope::commHandler() {
         return;
       }
     _writequeue.pop();
+    waitForEcho = true;
     }
   } while (_writequeue.size() > 0);
 }
@@ -1049,6 +1051,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   if( strncasecmp( cmd, "tx", 2) == 0)
   {
     DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
+    waitForEcho = false;
     return;
   }
   else // Received ECHO or unhandled command
@@ -1118,21 +1121,18 @@ void GapersScope::SendCommand( char syst, short int cmd, long val )
 
 void GapersScope::FinalizeMove() {
   if (raIsMoving && decIsMoving) {
-    if ((raMovement.rotations > 0) && (decMovement.rotations > 0)) {
+    if ((raMovement.rotations != 0) && (decMovement.rotations != 0)) {
       SendCommand('0', 14 , 1); // move both systems in the same manner
       return;
     } else if ((raMovement.rotations == 0) && (decMovement.rotations == 0)) {
       SendCommand('0', 8 , 1); // move both systems in the same manner
       return;
-    } else {
-      SendCommand('1', (raMovement.rotations > 0) ? 14 : 8, 1);
-      SendCommand('2', (decMovement.rotations > 0) ? 14 : 8, 1);
     }
   }
   if (raIsMoving) {
-    SendCommand('1', (raMovement.rotations > 0) ? 14 : 8, 1);
+    SendCommand('1', (raMovement.rotations != 0) ? 14 : 8, 1);
   }
   if (decIsMoving) {
-    SendCommand('2', (decMovement.rotations > 0) ? 14 : 8, 1);
+    SendCommand('2', (decMovement.rotations != 0) ? 14 : 8, 1);
   }
 }
