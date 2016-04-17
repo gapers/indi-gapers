@@ -28,8 +28,19 @@ protected:
   INumberVectorProperty AaNP;
   INumber AaN[2];
 
+  // Dome properties
+
   ISwitchVectorProperty domesyncSP;
   ISwitch domesyncS[2];
+
+  INumberVectorProperty domeAzNP;
+  INumber domeAzN[1];
+
+  ISwitchVectorProperty domeCoordSP;
+  ISwitch domeCoordS[3];
+
+  INumberVectorProperty domeSpeedNP;
+  INumber domeSpeedN[1];
 
   // General device functions
   bool Connect();
@@ -70,7 +81,7 @@ private:
     READINGCOMMAND  = 2
   };
   e_cstate c_state = STARTWAITING;
-  bool waitForEcho = false;
+  time_t cmdEchoTimeout = 0;
 
   // Properties representing encoder steps and stepper axle rounds used in
   // axis movement. RA and DEC share the same structure for tidyness

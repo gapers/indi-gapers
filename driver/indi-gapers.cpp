@@ -25,6 +25,9 @@ with an INDI-compatible client.
 const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
 const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
 const int   POLLMS = 250;                      /* poll period, ms */
+
+const char *DOME_TAB = "Cupola";
+
 std::auto_ptr<GapersScope> gapersScope(0);
 /**************************************************************************************
 ** Initilize GapersScope object
@@ -117,14 +120,25 @@ bool GapersScope::initProperties()
   IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
   IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
 
+  // Dome properties
+  IUFillSwitch(&domesyncS[0], "DOMEAUTO", "Auto", ISS_ON);
+  IUFillSwitch(&domesyncS[1], "DOMEMANUAL", "Manual", ISS_OFF);
+  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
+
   // Add Alt Az coordinates
   IUFillNumber(&AaN[AXIS_ALT], "ALT", "Alt (dd:mm:ss)","%010.6m",-90,90,0,0);
   IUFillNumber(&AaN[AXIS_AZ], "AZ", "Az (dd:mm:ss)","%010.6m",0,360,0,0);
   IUFillNumberVector(&AaNP,AaN,2,getDeviceName(),"ALTAZ_COORD","AltAzimuthal Coordinates",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
 
-  IUFillSwitch(&domesyncS[0], "DOMEAUTO", "Auto", ISS_ON);
-  IUFillSwitch(&domesyncS[1], "DOMEMANUAL", "Manual", ISS_OFF);
-  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
+  IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m",0,360,0,0);
+  IUFillNumberVector(&domeAzNP, domeAzN, 1, getDeviceName(), "DOME_AZIMUTH", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
+
+  IUFillSwitch(&domeCoordS[0],"SLEW","Slew",ISS_ON);
+  IUFillSwitch(&domeCoordS[1],"SYNC","Sync",ISS_OFF);
+  IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDeviceName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
+
+  IUFillNumber(&domeSpeedN[0], "DOME_SPEED", "Rotation speed (degrees per second)", "%10.9f",0,10,0.01,3.591022444);
+  IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDeviceName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   addSimulationControl();
   addDebugControl();
@@ -153,7 +167,7 @@ bool GapersScope::Connect()
   _writequeue = std::queue<std::string>();
   _readbuffer = "";
   c_state = STARTWAITING;
-  waitForEcho = false;
+  cmdEchoTimeout = 0;
 
   return rc;
 }
@@ -574,8 +588,10 @@ void GapersScope::ISGetProperties (const char *dev) {
     defineNumber(&AaNP);
     // Add dome properties
     defineSwitch(&domesyncSP);
+    defineNumber(&domeAzNP);
+    defineSwitch(&domeCoordSP);
+    defineNumber(&domeSpeedNP);
   }
-
 }
 
 bool GapersScope::updateProperties()
@@ -586,12 +602,18 @@ bool GapersScope::updateProperties()
     defineNumber(&Eq2kNP);
     defineNumber(&AaNP);
     defineSwitch(&domesyncSP);
+    defineNumber(&domeAzNP);
+    defineSwitch(&domeCoordSP);
+    defineNumber(&domeSpeedNP);
   }
   else
   {
     deleteProperty(Eq2kNP.name);
     deleteProperty(AaNP.name);
     deleteProperty(domesyncSP.name);
+    deleteProperty(domeAzNP.name);
+    deleteProperty(domeCoordSP.name);
+    deleteProperty(domeSpeedNP.name);
   }
 
   return INDI::Telescope::updateProperties();
@@ -652,10 +674,22 @@ void GapersScope::NewRaDec(double ra,double dec) {
 bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n)
 {
   //  first check if it's for our device
-  if(strcmp(dev,getDeviceName())==0)
-  {
-    if(strcmp(name,"EQUATORIAL_COORD")==0)
-    {
+  if(strcmp(dev,getDeviceName())==0) {
+    double az=-1;
+    if(strcmp(name,"DOME_AZIMUTH")==0) {
+      for (int x=0; x<n; x++) {
+        INumber *azp = IUFindNumber(&domeAzNP, names[x]);
+        if (azp == &domeAzN[0]) {
+          az = values[x];
+        }
+      }
+      if ((az >= 0) && (az <= 360)) {
+        // TODO: process dome azimuth value change
+        domeAzN[0].value = az;
+      }
+      domeAzNP.s = IPS_OK;
+      IDSetNumber(&domeAzNP, NULL);
+    } else if(strcmp(name,"EQUATORIAL_COORD")==0) {
       //  this is for us, and it is a goto
       bool rc=false;
       double ra=-1;
@@ -670,8 +704,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
           dec = values[x];
         }
       }
-      if ((ra>=0)&&(ra<=24)&&(dec>=-90)&&(dec<=90))
-      {
+      if ((ra>=0)&&(ra<=24)&&(dec>=-90)&&(dec<=90)) {
         // Convert coordinates to JNOW
         ln_equ_posn jnow,j2k;
         j2k.ra = ra*15.0;
@@ -916,6 +949,9 @@ void GapersScope::commHandler() {
   if (isSimulation()) // No interaction with RS232 in simulation mode
   return;
 
+  if (! isConnected()) // If telescope hardware is not connected, bail out
+  return;
+
   do {
     int rlen=0; // number of chars read by read below
     rlen = read(PortFD, inbuf, 80);
@@ -955,7 +991,7 @@ void GapersScope::commHandler() {
       }
     }
     // check for output queue and eventually send its contents, one at a time.
-    if ((!waitForEcho) && (_writequeue.size() > 0)) {
+    if ((cmdEchoTimeout == 0) && (_writequeue.size() > 0)) {
       DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Sending Xpres command <%s>...\n", _writequeue.front().c_str());
       int rv = write(PortFD, (unsigned char*) _writequeue.front().c_str(), _writequeue.front().size());
       if (rv == -1) {
@@ -966,7 +1002,16 @@ void GapersScope::commHandler() {
         return;
       }
     _writequeue.pop();
-    waitForEcho = true;
+    cmdEchoTimeout = time(NULL);
+    }
+
+    // Check for cmd echo timeout. If no echo is received in a reasonable timeout
+    // then something awful is happening and user action is required. We abort
+    // processing and disconnect.
+    if ((cmdEchoTimeout > 0) && ((time(NULL) - cmdEchoTimeout) > 1)) {
+      DEBUG(INDI::Logger::DBG_SESSION, "comm-handler: no echo received after sending command. Disconnecting.");
+      Disconnect();
+      return;
     }
   } while (_writequeue.size() > 0);
 }
@@ -1051,7 +1096,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   if( strncasecmp( cmd, "tx", 2) == 0)
   {
     DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
-    waitForEcho = false;
+    cmdEchoTimeout = 0;
     return;
   }
   else // Received ECHO or unhandled command
