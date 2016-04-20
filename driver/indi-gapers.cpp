@@ -671,8 +671,7 @@ void GapersScope::NewRaDec(double ra,double dec) {
   INDI::Telescope::NewRaDec(ra, dec);
 }
 
-bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n)
-{
+bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n) {
   //  first check if it's for our device
   if(strcmp(dev,getDeviceName())==0) {
     double az=-1;
@@ -747,6 +746,29 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
     }
   }
   return INDI::Telescope::ISNewNumber(dev,name,values,names,n);
+}
+
+bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n) {
+  if(strcmp(dev,getDeviceName())==0) {
+    //  This one is for us
+    if(!strcmp(name,domeCoordSP.name)) {
+      //  client is telling us what to do with co-ordinate requests
+      domeCoordSP.s=IPS_OK;
+      IUUpdateSwitch(&domeCoordSP,states,names,n);
+      //  Update client display
+      IDSetSwitch(&domeCoordSP, NULL);
+      return true;
+    }
+    // Dome position in sync with telescope
+    if (!strcmp(name, domesyncSP.name)) {
+      domesyncSP.s=IPS_OK;
+      IUUpdateSwitch(&domesyncSP, states, names, n);
+      IDSetSwitch(&domesyncSP, NULL);
+      return true;
+    }
+  }
+  //  Nobody has claimed this, so, ignore it
+  return INDI::Telescope::ISNewSwitch(dev,name,states,names,n);
 }
 
 /**
