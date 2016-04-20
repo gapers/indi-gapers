@@ -1001,14 +1001,15 @@ void GapersScope::commHandler() {
         Disconnect();
         return;
       }
-    _writequeue.pop();
-    cmdEchoTimeout = time(NULL);
+      _writequeue.pop();
+      cmdEchoTimeout = time(NULL);
     }
 
     // Check for cmd echo timeout. If no echo is received in a reasonable timeout
     // then something awful is happening and user action is required. We abort
-    // processing and disconnect.
-    if ((cmdEchoTimeout > 0) && ((time(NULL) - cmdEchoTimeout) > 1)) {
+    // processing and disconnect. Timeout exception is set at three seconds. should
+    // never happen during normal processing (all commands are normally echoed back).
+    if ((cmdEchoTimeout > 0) && ((time(NULL) - cmdEchoTimeout) > 3)) {
       DEBUG(INDI::Logger::DBG_SESSION, "comm-handler: no echo received after sending command. Disconnecting.");
       Disconnect();
       return;
