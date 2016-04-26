@@ -137,7 +137,7 @@ bool GapersScope::initProperties()
   IUFillSwitch(&domeCoordS[1],"SYNC","Sync",ISS_OFF);
   IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDeviceName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
 
-  IUFillNumber(&domeSpeedN[0], "DOME_SPEED", "Rotation speed (degrees per second)", "%10.9f",0,10,0.01,3.591022444);
+  IUFillNumber(&domeSpeedN[0], "DOME_SPEED", "Seconds for a full spin", "%10.4f",0,10,0.01,100.25);
   IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDeviceName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   addSimulationControl();
@@ -299,7 +299,40 @@ GapersScope::DomeGoto(double az) {
   fs_sexa(azDistStr, azDist, 2, 3600);
   DEBUGF(INDI::Logger::DBG_SESSION, "Moving dome %s degrees.", azDistStr);
 
-  double angularSpeed =
+  long movTime = static_cast(long) ((( domeSpeedN[0].value / 360.0 ) * azDist * 1000.0) + 0.5);
+  // Disable dome manual commands
+  DomeManualEnable(false);
+  // Tell dome to move
+  SendCommand( '2', 10, time);
+  SendCommand( '2', 9, 2);
+  SendCommand( '2', 5, 1);
+
+}
+
+void GapersScope::DomeManualEnable(bool enabled) {
+	SendCommand( '2', 10, (enabled ? 0 : 1));
+	SendCommand( '2', 9, 1);
+	SendCommand( '2', 5, 1);
+}
+
+
+/**************************************************************************************
+** Client is asking us to sync dome
+***************************************************************************************/
+GapersScope::DomeSync(double az) {
+  // Check for dome status and abort if slewing
+  if (DomeTrackState == DOME_SLEWING) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Cannot sync while dome is slewing.");
+    return false;
+  }
+  char azDistStr[64];
+  fs_sexa(azDistStr, az, 2, 3600);
+  DEBUGF(INDI::Logger::DBG_SESSION, "Syncing dome to %s.", azDistStr);
+
+  domeAzN[0].value = domeCurrentAZ = az;
+  domeAzNP.s = IPS_OK;
+  IDSetNumber(&domeAzNP, NULL);
+  return true;
 }
 /**************************************************************************************
 ** Client is asking us to abort our motion
@@ -1141,15 +1174,25 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
       switch (var) {
         case 4:          // Stepper quote on PuntaGiri
         case 8:					 // Stepper quote
-        if (whr == 1) { // 1 means end of slewing
-          currentDEC = targetDEC;
-          decIsMoving = false;
-          if (! raIsMoving) {
-            TrackState = SCOPE_TRACKING;
-            DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+          if (whr == 1) { // 1 means end of slewing
+            currentDEC = targetDEC;
+            decIsMoving = false;
+            if (! raIsMoving) {
+              TrackState = SCOPE_TRACKING;
+              DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+            }
+            NewRaDec(currentRA, currentDEC);
           }
-          NewRaDec(currentRA, currentDEC);
-        }
+        break;
+        case 9:         // Dome subsystem notifications
+          if (whr == 2) {
+            domeAzN[0].value = domeCurrentAZ = domeTargetAZ;
+            domeAzNP.s = IPS_OK;
+            IDSetNumber(&domeAzNP);
+            DomeTrackState = DOME_IDLE;
+            DEBUG(INDI::Logger::DBG_SESSION, "Dome rotation is complete. Stopped.")
+            DomeManualEnable(true);
+          }
         break;
       }
       break;

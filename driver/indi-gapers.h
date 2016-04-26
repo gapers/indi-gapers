@@ -57,7 +57,9 @@ protected:
   bool ReadScopeStatus();
   bool Goto(double,double);
   bool DomeGoto(double);
+  void DomeManualEnable(bool);
   bool Sync(double,double);
+  bool DomeSync(double);
   bool Abort();
 private:
   double currentRA;
