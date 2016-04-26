@@ -19,6 +19,7 @@ public:
   virtual bool ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n);
   virtual bool ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n);
 
+  enum DomeStatus { DOME_IDLE, DOME_SLEWING };
 protected:
 
   // All telescopes should produce equatorial co-ordinates
@@ -55,6 +56,7 @@ protected:
   // Telescoe specific functions
   bool ReadScopeStatus();
   bool Goto(double,double);
+  bool DomeGoto(double);
   bool Sync(double,double);
   bool Abort();
 private:
@@ -66,6 +68,9 @@ private:
   bool decIsMoving;
   unsigned int DBG_SCOPE;
   IPState lastEq2kState;
+  double domeCurrentAZ;
+  double domeTargetAZ;
+  DomeStatus DomeTrackState;
 
   // Serial handling methods and properties
   int tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd);

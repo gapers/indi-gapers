@@ -169,6 +169,10 @@ bool GapersScope::Connect()
   c_state = STARTWAITING;
   cmdEchoTimeout = 0;
 
+  // initialize telescope and dome status
+  TrackState = SCOPE_TRACKING;
+  DomeTrackState = DOME_IDLE;
+
   return rc;
 }
 
@@ -278,6 +282,24 @@ bool GapersScope::Goto(double ra, double dec)
   DEBUGF(INDI::Logger::DBG_SESSION, "DEC dist: %s DEC steps (uncorrected): %ld", decDistStr, decMovement.steps);
   // Success!
   return true;
+}
+/**************************************************************************************
+** Client is asking us to move dome
+***************************************************************************************/
+GapersScope::DomeGoto(double az) {
+  // Check for dome status and abort if slewing
+  if (DomeTrackState == DOME_SLEWING) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Cannot move while dome is slewing.");
+    return false;
+  }
+  domeTargetAZ=az;
+  double azDist = rangeDistance(domeTargetAZ - domeCurrentAZ);
+
+  char azDistStr[64];
+  fs_sexa(azDistStr, azDist, 2, 3600);
+  DEBUGF(INDI::Logger::DBG_SESSION, "Moving dome %s degrees.", azDistStr);
+
+  double angularSpeed =
 }
 /**************************************************************************************
 ** Client is asking us to abort our motion
@@ -674,6 +696,7 @@ void GapersScope::NewRaDec(double ra,double dec) {
 bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n) {
   //  first check if it's for our device
   if(strcmp(dev,getDeviceName())==0) {
+    bool rc=false;
     double az=-1;
     if(strcmp(name,"DOME_AZIMUTH")==0) {
       for (int x=0; x<n; x++) {
@@ -683,8 +706,26 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         }
       }
       if ((az >= 0) && (az <= 360)) {
-        // TODO: process dome azimuth value change
-        domeAzN[0].value = az;
+        ISwitch *sw;
+        sw=IUFindSwitch(&DomeCoordSP,"SYNC");
+        if((sw != NULL)&&( sw->s==ISS_ON )) {
+          rc=DomeSync(az);
+          if (rc)
+            domeAzNP.s = IPS_OK;
+          else
+            domeAzNP.s = IPS_ALERT;
+          IDSetNumber(&domeAzNP, NULL);
+          return rc;
+        }
+        domeTargetAZ = az;
+        rc = DomeGoto(az);
+        if (rc)
+          domeAzNP.s = IPS_BUSY;
+        else
+          domeAzNP.s = IPS_ALERT;
+        IDSetNumber(&domeAzNP, NULL);
+        return rc;
+        // domeAzN[0].value = az;
       }
       domeAzNP.s = IPS_OK;
       IDSetNumber(&domeAzNP, NULL);
