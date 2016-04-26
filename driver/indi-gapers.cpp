@@ -330,6 +330,7 @@ bool GapersScope::DomeGoto(double az) {
 
   DomeTrackState = DOME_SLEWING;
   domeMovementStart=time(NULL);
+  // TODO: setup values for dome movement simulation (to be used in ReadScopeStatus)
   return true;
 }
 
