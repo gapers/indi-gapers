@@ -137,8 +137,11 @@ bool GapersScope::initProperties()
   IUFillSwitch(&domeCoordS[1],"SYNC","Sync",ISS_OFF);
   IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDeviceName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
 
-  IUFillNumber(&domeSpeedN[0], "DOME_SPEED", "Seconds for a full spin", "%10.4f",0,10,0.01,100.25);
+  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f",0,10,0.01,100.25);
   IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDeviceName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
+
+  IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f",0,10,0.1,2.0);
+  IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDeviceName(), "DOME_THRESHOLD", "Dome azimuth threshold ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   addSimulationControl();
   addDebugControl();
@@ -229,6 +232,24 @@ bool GapersScope::Goto(double ra, double dec)
   targetRA=ra;
   targetDEC=dec;
 
+  // Calculate target azimuth and move dome accordingly if in auto state
+  ln_equ_posn eqc;
+  ln_lnlat_posn eqa;
+  ln_hrz_posn psn;
+
+  eqc.ra = currentRA * 15.0;
+  eqc.dec = currentDEC;
+  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  if (eqa.lng > 180.) eqa.lng -= 360.;
+  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
+  psn.az += 180.;
+  while (psn.az > 360.) psn.az -= 360.;
+  while (psn.az < 0.) psn.az += 360.;
+  if (domesyncS[0].s == ISS_ON) {
+    DomeGoto(psn.az);
+  }
+
   char RAStr[64], DecStr[64];
   // Parse the RA/DEC into strings
   fs_sexa(RAStr, targetRA, 2, 3600);
@@ -286,7 +307,7 @@ bool GapersScope::Goto(double ra, double dec)
 /**************************************************************************************
 ** Client is asking us to move dome
 ***************************************************************************************/
-GapersScope::DomeGoto(double az) {
+bool GapersScope::DomeGoto(double az) {
   // Check for dome status and abort if slewing
   if (DomeTrackState == DOME_SLEWING) {
     DEBUG(INDI::Logger::DBG_SESSION, "Cannot move while dome is slewing.");
@@ -299,14 +320,17 @@ GapersScope::DomeGoto(double az) {
   fs_sexa(azDistStr, azDist, 2, 3600);
   DEBUGF(INDI::Logger::DBG_SESSION, "Moving dome %s degrees.", azDistStr);
 
-  long movTime = static_cast(long) ((( domeSpeedN[0].value / 360.0 ) * azDist * 1000.0) + 0.5);
+  long movTime = static_cast<long> ((( 360.0 / domeSpeedN[0].value ) * azDist * 1000.0) + 0.5);
   // Disable dome manual commands
   DomeManualEnable(false);
   // Tell dome to move
-  SendCommand( '2', 10, time);
+  SendCommand( '2', 10, movTime);
   SendCommand( '2', 9, 2);
   SendCommand( '2', 5, 1);
 
+  DomeTrackState = DOME_SLEWING;
+  domeMovementStart=time(NULL);
+  return true;
 }
 
 void GapersScope::DomeManualEnable(bool enabled) {
@@ -319,7 +343,7 @@ void GapersScope::DomeManualEnable(bool enabled) {
 /**************************************************************************************
 ** Client is asking us to sync dome
 ***************************************************************************************/
-GapersScope::DomeSync(double az) {
+bool GapersScope::DomeSync(double az) {
   // Check for dome status and abort if slewing
   if (DomeTrackState == DOME_SLEWING) {
     DEBUG(INDI::Logger::DBG_SESSION, "Cannot sync while dome is slewing.");
@@ -646,6 +670,7 @@ void GapersScope::ISGetProperties (const char *dev) {
     defineNumber(&domeAzNP);
     defineSwitch(&domeCoordSP);
     defineNumber(&domeSpeedNP);
+    defineNumber(&domeAzThresholdNP);
   }
 }
 
@@ -660,6 +685,7 @@ bool GapersScope::updateProperties()
     defineNumber(&domeAzNP);
     defineSwitch(&domeCoordSP);
     defineNumber(&domeSpeedNP);
+    defineNumber(&domeAzThresholdNP);
   }
   else
   {
@@ -669,6 +695,7 @@ bool GapersScope::updateProperties()
     deleteProperty(domeAzNP.name);
     deleteProperty(domeCoordSP.name);
     deleteProperty(domeSpeedNP.name);
+    deleteProperty(domeAzThresholdNP.name);
   }
 
   return INDI::Telescope::updateProperties();
@@ -731,7 +758,25 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
   if(strcmp(dev,getDeviceName())==0) {
     bool rc=false;
     double az=-1;
-    if(strcmp(name,"DOME_AZIMUTH")==0) {
+    if(strcmp(name,"DOME_THRESHOLD")) {
+      for (int x=0; x<n; x++) {
+        INumber *th = IUFindNumber(&domeAzThresholdNP, names[x]);
+        if (th == &domeAzThresholdN[0]) {
+          domeAzThreshold = values[x];
+        }
+      }
+      domeAzThresholdNP.s = IPS_OK;
+      IDSetNumber(&domeAzThresholdNP, NULL);
+    } else if(strcmp(name,"DOME_SPEED")==0) {
+      for (int x=0; x<n; x++) {
+        INumber *sp = IUFindNumber(&domeSpeedNP, names[x]);
+        if (sp == &domeSpeedN[0]) {
+          domeSpeed = values[x];
+        }
+      }
+      domeSpeedNP.s=IPS_OK;
+      IDSetNumber(&domeSpeedNP, NULL);
+    } else if(strcmp(name,"DOME_AZIMUTH")==0) {
       for (int x=0; x<n; x++) {
         INumber *azp = IUFindNumber(&domeAzNP, names[x]);
         if (azp == &domeAzN[0]) {
@@ -740,7 +785,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       }
       if ((az >= 0) && (az <= 360)) {
         ISwitch *sw;
-        sw=IUFindSwitch(&DomeCoordSP,"SYNC");
+        sw=IUFindSwitch(&domeCoordSP,"SYNC");
         if((sw != NULL)&&( sw->s==ISS_ON )) {
           rc=DomeSync(az);
           if (rc)
@@ -1188,9 +1233,9 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
           if (whr == 2) {
             domeAzN[0].value = domeCurrentAZ = domeTargetAZ;
             domeAzNP.s = IPS_OK;
-            IDSetNumber(&domeAzNP);
+            IDSetNumber(&domeAzNP, NULL);
             DomeTrackState = DOME_IDLE;
-            DEBUG(INDI::Logger::DBG_SESSION, "Dome rotation is complete. Stopped.")
+            DEBUG(INDI::Logger::DBG_SESSION, "Dome rotation is complete. Stopped.");
             DomeManualEnable(true);
           }
         break;

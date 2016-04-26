@@ -44,6 +44,9 @@ protected:
   INumberVectorProperty domeSpeedNP;
   INumber domeSpeedN[1];
 
+  INumberVectorProperty domeAzThresholdNP;
+  INumber domeAzThresholdN[1];
+
   // General device functions
   bool Connect();
   bool Connect(const char *port, uint16_t baud);
@@ -73,6 +76,9 @@ private:
   double domeCurrentAZ;
   double domeTargetAZ;
   DomeStatus DomeTrackState;
+  double domeSpeed;
+  double domeAzThreshold;
+  time_t domeMovementStart;
 
   // Serial handling methods and properties
   int tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd);
