@@ -39,7 +39,7 @@ protected:
   INumber domeAzN[1];
 
   ISwitchVectorProperty domeCoordSP;
-  ISwitch domeCoordS[3];
+  ISwitch domeCoordS[2];
 
   INumberVectorProperty domeSpeedNP;
   INumber domeSpeedN[1];
@@ -109,6 +109,12 @@ private:
   };
   AxisMovementParameters raMovement, decMovement;
   time_t movementStart;
+
+  struct DomeMovementParameters {
+    double angle;
+    long steps;
+    double time;
+  };
 
   double rangeDistance( double );
   bool _setMoveDataRA( double );

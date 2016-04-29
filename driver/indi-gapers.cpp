@@ -340,7 +340,6 @@ void GapersScope::DomeManualEnable(bool enabled) {
 	SendCommand( '2', 5, 1);
 }
 
-
 /**************************************************************************************
 ** Client is asking us to sync dome
 ***************************************************************************************/
@@ -377,33 +376,37 @@ bool GapersScope::ReadScopeStatus()
   switch (TrackState)
   {
     case SCOPE_SLEWING:
-    time_t currentTime;
-    time(&currentTime);
-    double offset;
-    double elapsed;
-    elapsed = difftime(currentTime, movementStart);
-    if (elapsed > 0) {
-      // interpolate RA position
-      if (elapsed < raMovement.time) {
-        offset = ( raMovement.angle * elapsed ) / raMovement.time;
-        currentRA = targetRA + ((raMovement.angle - offset)/15.0);
+      time_t currentTime;
+      time(&currentTime);
+      double offset;
+      double elapsed;
+      elapsed = difftime(currentTime, movementStart);
+      if (elapsed > 0) {
+        // interpolate RA position
+        if (elapsed < raMovement.time) {
+          offset = ( raMovement.angle * elapsed ) / raMovement.time;
+          currentRA = targetRA + ((raMovement.angle - offset)/15.0);
+        }
+        if (elapsed < decMovement.time) {
+          offset = ( decMovement.angle * elapsed ) / decMovement.time;
+          currentDEC = targetDEC + ( decMovement.angle - offset );
+        }
       }
-      if (elapsed < decMovement.time) {
-        offset = ( decMovement.angle * elapsed ) / decMovement.time;
-        currentDEC = targetDEC + ( decMovement.angle - offset );
+      if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+        currentRA = targetRA;
+        currentDEC = targetDEC;
+        // Let's set state to TRACKING
+        TrackState = SCOPE_TRACKING;
+        DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
       }
-    }
-    if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
-      currentRA = targetRA;
-      currentDEC = targetDEC;
-      // Let's set state to TRACKING
-      TrackState = SCOPE_TRACKING;
-      DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-    }
-    NewRaDec(currentRA, currentDEC);
+      NewRaDec(currentRA, currentDEC);
     break;
     default:
     break;
+  }
+  if (DomeTrackState == DOME_SLEWING) {
+    time_t dElapsed = time(NULL) - domeMovementStart;
+    // if ((domeOriginAz + dElapsed*getDomeSpeed()))
   }
   // Update AltAzimuthal Coordinates
   /*
@@ -428,6 +431,16 @@ bool GapersScope::ReadScopeStatus()
   while (psn.az > 360.) psn.az -= 360.;
   while (psn.az < 0.) psn.az += 360.;
   NewAltAz(psn.alt, psn.az);
+
+  // If telescope is not moving and aim azimuth is more distant than threshold from
+  // dome azimuth, and dome control is in auto, then move dome accordingly
+  ISwitch *sw;
+  sw=IUFindSwitch(&domesyncSP,"AUTO");
+  if((sw != NULL)&&( sw->s==ISS_ON )) {
+    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
+      DomeGoto(psn.az);
+    }
+  }
 
   // Process serial communication with PLC
   commHandler();
@@ -620,9 +633,8 @@ bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_gir
     // più ridotti non è comunque un problema fino a che si sta sopra alla
     // quota di sicurezza utilizzata per il calcolo dei giri, 1 milione di
     // passi ovvero circa 4 gradi.
-    // TODO: gestione dell'errore qualora venga richiesto un movimento troppo
-    // piccolo
     //    error("lo spostamento lungo deve essere usato solo per movimenti > 1<<23 passi.");
+    DEBUG(INDI::Logger::DBG_SESSION, "Requested a movement too small for spin based driving. This procedure should be used only for > 1^23 steps.");
     return false;
   }
 
@@ -707,8 +719,6 @@ void GapersScope::NewAltAz(double alt, double az) {
   AaN[AXIS_AZ].value = az;
   AaNP.s = IPS_IDLE;
   IDSetNumber(&AaNP, NULL);
-
-  // TODO: Move dome accordingly
 }
 
 void GapersScope::NewRaDec(double ra,double dec) {
@@ -1201,44 +1211,46 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
     // TODO: process var update command
     switch (syst) {
       case '1': // Var update in RA subsystem
-      switch (var) {
-        case 4:          // Stepper quote on PuntaGiri
-        case 8:					 // Stepper quote
-        if (whr == 1) { // 1 means end of slewing
-          currentRA = targetRA;
-          raIsMoving = false;
-          if (! decIsMoving) {
-            TrackState = SCOPE_TRACKING;
-            DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-          }
-          NewRaDec(currentRA, currentDEC);
-        }
-        break;
-      }
-      break;
-      case '2': // Var update in DEC subsystem
-      switch (var) {
-        case 4:          // Stepper quote on PuntaGiri
-        case 8:					 // Stepper quote
+        switch (var) {
+          case 4:          // Stepper quote on PuntaGiri
+          case 8:					 // Stepper quote
           if (whr == 1) { // 1 means end of slewing
-            currentDEC = targetDEC;
-            decIsMoving = false;
-            if (! raIsMoving) {
+            currentRA = targetRA;
+            raIsMoving = false;
+            if (! decIsMoving) {
               TrackState = SCOPE_TRACKING;
               DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
             }
             NewRaDec(currentRA, currentDEC);
           }
         break;
-        case 9:         // Dome subsystem notifications
-          if (whr == 2) {
-            domeAzN[0].value = domeCurrentAZ = domeTargetAZ;
-            domeAzNP.s = IPS_OK;
-            IDSetNumber(&domeAzNP, NULL);
-            DomeTrackState = DOME_IDLE;
-            DEBUG(INDI::Logger::DBG_SESSION, "Dome rotation is complete. Stopped.");
-            DomeManualEnable(true);
-          }
+      }
+      break;
+      case '2': // Var update in DEC subsystem
+        switch (var) {
+          case 4:          // Stepper quote on PuntaGiri
+          case 8:					 // Stepper quote
+            if (whr == 1) { // 1 means end of slewing
+              currentDEC = targetDEC;
+              decIsMoving = false;
+              if (! raIsMoving) {
+                TrackState = SCOPE_TRACKING;
+                DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+              }
+              NewRaDec(currentRA, currentDEC);
+            }
+          break;
+          case 9:         // Dome subsystem notifications
+            if (whr == 2) { // 2 means end of slewing
+              DomeTrackState = DOME_IDLE;
+              DEBUG(INDI::Logger::DBG_SESSION, "Dome rotation is complete. Stopped.");
+              DomeManualEnable(true);
+              domeAzN[0].value = domeCurrentAZ = domeTargetAZ;
+              domeAzNP.s = IPS_OK;
+              IDSetNumber(&domeAzNP, NULL);
+            }
+          break;
+        }
         break;
       }
       break;
