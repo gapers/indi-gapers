@@ -121,8 +121,8 @@ bool GapersScope::initProperties()
   IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
 
   // Dome properties
-  IUFillSwitch(&domesyncS[0], "DOMEAUTO", "Auto", ISS_ON);
-  IUFillSwitch(&domesyncS[1], "DOMEMANUAL", "Manual", ISS_OFF);
+  IUFillSwitch(&domesyncS[0], "AUTO", "Auto", ISS_ON);
+  IUFillSwitch(&domesyncS[1], "MANUAL", "Manual", ISS_OFF);
   IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
   // Add Alt Az coordinates
@@ -329,8 +329,10 @@ bool GapersScope::DomeGoto(double az) {
   SendCommand( '2', 5, 1);
 
   DomeTrackState = DOME_SLEWING;
+
+  // Set values for dome simulation
   domeMovementStart=time(NULL);
-  // TODO: setup values for dome movement simulation (to be used in ReadScopeStatus)
+  domeMovementEnd = domeMovementStart+(movTime/1000);
   return true;
 }
 
@@ -405,6 +407,13 @@ bool GapersScope::ReadScopeStatus()
     break;
   }
   if (DomeTrackState == DOME_SLEWING) {
+    if (isSimulation() && (time(NULL) > domeMovementEnd)) {
+      DomeTrackState = DOME_IDLE;
+      domeCurrentAZ = domeTargetAZ;
+      domeAzN[0].value = domeTargetAZ;
+      domeAzNP.s = IPS_OK;
+      IDSetNumber(&domeAzNP, NULL);
+    }
     time_t dElapsed = time(NULL) - domeMovementStart;
     // if ((domeOriginAz + dElapsed*getDomeSpeed()))
   }
@@ -437,7 +446,11 @@ bool GapersScope::ReadScopeStatus()
   ISwitch *sw;
   sw=IUFindSwitch(&domesyncSP,"AUTO");
   if((sw != NULL)&&( sw->s==ISS_ON )) {
+    domeAzThreshold = domeAzThresholdN[0].value;
     if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
+      char azStr[64];
+      fs_sexa(azStr, psn.az, 2, 3600);
+      DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThreshold);
       DomeGoto(psn.az);
     }
   }
@@ -585,6 +598,33 @@ bool GapersScope::Sync(double ra, double dec)
   // Mark state as slewing
   TrackState = SCOPE_TRACKING;
 
+  // If Dome in auto mode, sync dome to telescope azimuth
+  ln_equ_posn eqc;
+  ln_lnlat_posn eqa;
+  ln_hrz_posn psn;
+
+  eqc.ra = currentRA * 15.0;
+  eqc.dec = currentDEC;
+  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  if (eqa.lng > 180.) eqa.lng -= 360.;
+  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
+  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
+  psn.az += 180.;
+  while (psn.az > 360.) psn.az -= 360.;
+  while (psn.az < 0.) psn.az += 360.;
+  NewAltAz(psn.alt, psn.az);
+
+  ISwitch *sw;
+  sw=IUFindSwitch(&domesyncSP,"AUTO");
+  if((sw != NULL)&&( sw->s==ISS_ON )) {
+    bool rc=DomeSync(psn.az);
+    if (rc)
+      domeAzNP.s = IPS_OK;
+    else
+      domeAzNP.s = IPS_ALERT;
+    IDSetNumber(&domeAzNP, NULL);
+  }
   return true;
 }
 
@@ -769,7 +809,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
   if(strcmp(dev,getDeviceName())==0) {
     bool rc=false;
     double az=-1;
-    if(strcmp(name,"DOME_THRESHOLD")) {
+    if(strcmp(name,"DOME_THRESHOLD")==0) {
       for (int x=0; x<n; x++) {
         INumber *th = IUFindNumber(&domeAzThresholdNP, names[x]);
         if (th == &domeAzThresholdN[0]) {

@@ -20,8 +20,8 @@ public:
   virtual bool ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n);
 
   enum DomeStatus { DOME_IDLE, DOME_SLEWING };
-protected:
 
+protected:
   // All telescopes should produce equatorial co-ordinates
   INumberVectorProperty Eq2kNP;
   INumber Eq2kN[2];
@@ -79,6 +79,7 @@ private:
   double domeSpeed;
   double domeAzThreshold;
   time_t domeMovementStart;
+  time_t domeMovementEnd;
 
   // Serial handling methods and properties
   int tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd);
