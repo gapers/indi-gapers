@@ -1224,7 +1224,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
             NewRaDec(currentRA, currentDEC);
           }
         break;
-      }
+        }
       break;
       case '2': // Var update in DEC subsystem
         switch (var) {
@@ -1252,8 +1252,6 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
           break;
         }
         break;
-      }
-      break;
     }
   }
   else
