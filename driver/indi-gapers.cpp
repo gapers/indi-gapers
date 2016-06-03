@@ -244,7 +244,7 @@ bool GapersScope::Goto(double ra, double dec)
   eqa.lat = LocationN[LOCATION_LATITUDE].value;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
   psn.az += 180.;
-  while (psn.az > 360.) psn.az -= 360.;
+  while (psn.az >= 360.) psn.az -= 360.;
   while (psn.az < 0.) psn.az += 360.;
   if (domesyncS[0].s == ISS_ON) {
     DomeGoto(psn.az);
@@ -313,6 +313,10 @@ bool GapersScope::DomeGoto(double az) {
     DEBUG(INDI::Logger::DBG_SESSION, "Cannot move while dome is slewing.");
     return false;
   }
+  if (az == domeCurrentAZ) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Dome null movement, ignoring.");
+    return true;
+  }
   domeTargetAZ=az;
   double azDist = rangeDistance(domeTargetAZ - domeCurrentAZ);
 
@@ -332,7 +336,7 @@ bool GapersScope::DomeGoto(double az) {
 
   // Set values for dome simulation
   domeMovementStart=time(NULL);
-  domeMovementEnd = domeMovementStart+(movTime/1000);
+  domeMovementEnd = domeMovementStart+(fabs(movTime)/1000);
   return true;
 }
 
@@ -407,15 +411,16 @@ bool GapersScope::ReadScopeStatus()
     break;
   }
   if (DomeTrackState == DOME_SLEWING) {
+    domeAzN[0].value = domeTargetAZ - (rangeDistance(domeTargetAZ - domeCurrentAZ) > 0 ? 1 : -1) * ((domeMovementEnd - time(NULL)) / (360.0 / domeSpeedN[0].value));
+    while(domeAzN[0].value >= 360.) domeAzN[0].value -= 360.;
+    while(domeAzN[0].value < 0.) domeAzN[0].value += 360.;
     if (isSimulation() && (time(NULL) > domeMovementEnd)) {
       DomeTrackState = DOME_IDLE;
       domeCurrentAZ = domeTargetAZ;
       domeAzN[0].value = domeTargetAZ;
       domeAzNP.s = IPS_OK;
-      IDSetNumber(&domeAzNP, NULL);
     }
-    time_t dElapsed = time(NULL) - domeMovementStart;
-    // if ((domeOriginAz + dElapsed*getDomeSpeed()))
+    IDSetNumber(&domeAzNP, NULL);
   }
   // Update AltAzimuthal Coordinates
   /*
@@ -437,7 +442,7 @@ bool GapersScope::ReadScopeStatus()
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
   // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
   psn.az += 180.;
-  while (psn.az > 360.) psn.az -= 360.;
+  while (psn.az >= 360.) psn.az -= 360.;
   while (psn.az < 0.) psn.az += 360.;
   NewAltAz(psn.alt, psn.az);
 
@@ -611,7 +616,7 @@ bool GapersScope::Sync(double ra, double dec)
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
   // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
   psn.az += 180.;
-  while (psn.az > 360.) psn.az -= 360.;
+  while (psn.az >= 360.) psn.az -= 360.;
   while (psn.az < 0.) psn.az += 360.;
   NewAltAz(psn.alt, psn.az);
 
@@ -814,6 +819,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         INumber *th = IUFindNumber(&domeAzThresholdNP, names[x]);
         if (th == &domeAzThresholdN[0]) {
           domeAzThreshold = values[x];
+          domeAzThresholdN[0].value = domeAzThreshold;
         }
       }
       domeAzThresholdNP.s = IPS_OK;
@@ -823,11 +829,18 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         INumber *sp = IUFindNumber(&domeSpeedNP, names[x]);
         if (sp == &domeSpeedN[0]) {
           domeSpeed = values[x];
+          domeSpeedN[0].value = domeSpeed;
         }
       }
       domeSpeedNP.s=IPS_OK;
       IDSetNumber(&domeSpeedNP, NULL);
     } else if(strcmp(name,"DOME_AZIMUTH")==0) {
+      if (domesyncS[0].s == ISS_ON) {
+        DEBUG(INDI::Logger::DBG_WARNING, "Cannot set azimuth while in auto mode.");
+        domeAzNP.s=IPS_OK;
+        IDSetNumber(&domeAzNP, NULL);
+        return true;
+      }
       for (int x=0; x<n; x++) {
         INumber *azp = IUFindNumber(&domeAzNP, names[x]);
         if (azp == &domeAzN[0]) {
