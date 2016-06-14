@@ -324,7 +324,7 @@ bool GapersScope::DomeGoto(double az) {
   fs_sexa(azDistStr, azDist, 2, 3600);
   DEBUGF(INDI::Logger::DBG_SESSION, "Moving dome %s degrees.", azDistStr);
 
-  long movTime = static_cast<long> ((( 360.0 / domeSpeedN[0].value ) * azDist * 1000.0) + 0.5);
+  long movTime = static_cast<long> ((( domeSpeedN[0].value / 360.0 ) * azDist * 1000.0) + 0.5);
   // Disable dome manual commands
   DomeManualEnable(false);
   // Tell dome to move
@@ -411,7 +411,7 @@ bool GapersScope::ReadScopeStatus()
     break;
   }
   if (DomeTrackState == DOME_SLEWING) {
-    domeAzN[0].value = domeTargetAZ - (rangeDistance(domeTargetAZ - domeCurrentAZ) > 0 ? 1 : -1) * ((domeMovementEnd - time(NULL)) / (360.0 / domeSpeedN[0].value));
+    domeAzN[0].value = domeTargetAZ - (rangeDistance(domeTargetAZ - domeCurrentAZ) > 0 ? 1 : -1) * ((domeMovementEnd - time(NULL)) / (domeSpeedN[0].value / 360.0));
     while(domeAzN[0].value >= 360.) domeAzN[0].value -= 360.;
     while(domeAzN[0].value < 0.) domeAzN[0].value += 360.;
     if (isSimulation() && (time(NULL) > domeMovementEnd)) {
@@ -419,6 +419,7 @@ bool GapersScope::ReadScopeStatus()
       domeCurrentAZ = domeTargetAZ;
       domeAzN[0].value = domeTargetAZ;
       domeAzNP.s = IPS_OK;
+      DEBUG(INDI::Logger::DBG_SESSION, "Dome movement end (simulation mode).");
     }
     IDSetNumber(&domeAzNP, NULL);
   }
