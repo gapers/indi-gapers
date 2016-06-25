@@ -760,6 +760,15 @@ bool GapersScope::updateProperties()
   return INDI::Telescope::updateProperties();
 }
 
+bool GapersScope::saveConfigItems(FILE *fp) {
+  IUSaveConfigSwitch(fp, &domesyncSP);
+  IUSaveConfigSwitch(fp, &domeCoordSP);
+  IUSaveConfigNumber(fp, &domeSpeedNP);
+  IUSaveConfigNumber(fp, &domeAzThresholdNP);
+
+  return INDI::Telescope::saveConfigItems(fp);
+}
+
 void GapersScope::NewAltAz(double alt, double az) {
   AaN[AXIS_ALT].value = alt;
   AaN[AXIS_AZ].value = az;
@@ -1398,3 +1407,4 @@ void GapersScope::FinalizeMove() {
     SendCommand('2', (decMovement.rotations != 0) ? 14 : 8, 1);
   }
 }
+

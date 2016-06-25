@@ -56,6 +56,7 @@ protected:
   void NewAltAz(double alt, double az);
   virtual bool initProperties();
   virtual bool updateProperties();
+  virtual bool saveConfigItems(FILE *fp);
   // Telescoe specific functions
   bool ReadScopeStatus();
   bool Goto(double,double);
