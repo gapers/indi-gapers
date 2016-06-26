@@ -237,8 +237,8 @@ bool GapersScope::Goto(double ra, double dec)
   ln_lnlat_posn eqa;
   ln_hrz_posn psn;
 
-  eqc.ra = currentRA * 15.0;
-  eqc.dec = currentDEC;
+  eqc.ra = targetRA * 15.0;
+  eqc.dec = targetDEC;
   eqa.lng = LocationN[LOCATION_LONGITUDE].value;
   if (eqa.lng > 180.) eqa.lng -= 360.;
   eqa.lat = LocationN[LOCATION_LATITUDE].value;
@@ -333,6 +333,9 @@ bool GapersScope::DomeGoto(double az) {
   SendCommand( '2', 5, 1);
 
   DomeTrackState = DOME_SLEWING;
+  domeAzNP.s = IPS_BUSY;
+  IDSetNumber(&domeAzNP, NULL);
+
 
   // Set values for dome simulation
   domeMovementStart=time(NULL);
