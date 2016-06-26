@@ -137,7 +137,7 @@ bool GapersScope::initProperties()
   IUFillSwitch(&domeCoordS[1],"SYNC","Sync",ISS_OFF);
   IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDeviceName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
 
-  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f",0,10,0.01,100.25);
+  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f",0,150,0.01,94.33);
   IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDeviceName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f",0,10,0.1,2.0);
@@ -1407,4 +1407,3 @@ void GapersScope::FinalizeMove() {
     SendCommand('2', (decMovement.rotations != 0) ? 14 : 8, 1);
   }
 }
-
