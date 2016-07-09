@@ -246,9 +246,6 @@ bool GapersScope::Goto(double ra, double dec)
   psn.az += 180.;
   while (psn.az >= 360.) psn.az -= 360.;
   while (psn.az < 0.) psn.az += 360.;
-  if (domesyncS[0].s == ISS_ON) {
-    DomeGoto(psn.az);
-  }
 
   char RAStr[64], DecStr[64];
   // Parse the RA/DEC into strings
@@ -260,40 +257,56 @@ bool GapersScope::Goto(double ra, double dec)
   // Zeroes movement data
   raMovement = AxisMovementParameters();
   decMovement = AxisMovementParameters();
+  raIsMoving = decIsMoving = false;
 
   // Find angular distance between current and target position
   // Distance is then expressed in range -180/180 degrees (short path)
   raDist = rangeDistance((currentRA - targetRA) * 15.0);
-  // DEBUGF(INDI::Logger::DBG_SESSION, "currentRA: %f targetRA: %f dist: %f corr.dist: %f", currentRA, targetRA, (targetRA - currentRA) * 15.0, raDist);
-  if (raDist != 0) {
-    // Update movement data for RA (also accounting for sidereal motion )
-    if (! _setMoveDataRA(raDist)) {
-      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
-      return false;
-    }
+  // Update movement data for RA (also accounting for sidereal motion )
+  if (! _setMoveDataRA(raDist)) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Error in setting RA axis movement.");
+    return false;
+  }
+  if (raMovement.steps != 0) {
+    // only move if steps are != 0
     SendMove('1', raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
+    raIsMoving = true;
+  } else {
+    raIsMoving = false;
   }
 
   decDist = rangeDistance(currentDEC - targetDEC);
-  if (decDist != 0) {
-    if (! _setMoveDataDEC(decDist)) {
-      DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
-      return false;
-    }
+  if (! _setMoveDataDEC(decDist)) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Error in setting DEC axis movement.");
+    return false;
+  }
+  if (decMovement.steps != 0) {
     SendMove('2', decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
+    decIsMoving = true;
+  } else {
+    decIsMoving = false;
   }
 
   if (raIsMoving || decIsMoving) {
     FinalizeMove();
+
+    // Actually move dome only if telescope is moving
+    if (domesyncS[0].s == ISS_ON) {
+      DomeGoto(psn.az);
+    }
+
+
+    // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
+    movementStart = time(NULL) + 5;
+
+    // Mark state as slewing
+    TrackState = SCOPE_SLEWING;
+    // Inform client we are slewing to a new position
+    DEBUGF(INDI::Logger::DBG_SESSION, "Slewing to RA: %s - DEC: %s", RAStr, DecStr);
+  } else {
+    DEBUG(INDI::Logger::DBG_SESSION, "BAZINGA! Nothing is actually moving.");
+    return false;
   }
-
-  // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
-  movementStart = time(NULL) + 5;
-
-  // Mark state as slewing
-  TrackState = SCOPE_SLEWING;
-  // Inform client we are slewing to a new position
-  DEBUGF(INDI::Logger::DBG_SESSION, "Slewing to RA: %s - DEC: %s", RAStr, DecStr);
 
   char raDistStr[64];
   fs_sexa(raDistStr, raDist, 2, 3600);
@@ -344,9 +357,9 @@ bool GapersScope::DomeGoto(double az) {
 }
 
 void GapersScope::DomeManualEnable(bool enabled) {
-	SendCommand( '2', 10, (enabled ? 0 : 1));
-	SendCommand( '2', 9, 1);
-	SendCommand( '2', 5, 1);
+  SendCommand( '2', 10, (enabled ? 0 : 1));
+  SendCommand( '2', 9, 1);
+  SendCommand( '2', 5, 1);
 }
 
 /**************************************************************************************
@@ -385,30 +398,30 @@ bool GapersScope::ReadScopeStatus()
   switch (TrackState)
   {
     case SCOPE_SLEWING:
-      time_t currentTime;
-      time(&currentTime);
-      double offset;
-      double elapsed;
-      elapsed = difftime(currentTime, movementStart);
-      if (elapsed > 0) {
-        // interpolate RA position
-        if (elapsed < raMovement.time) {
-          offset = ( raMovement.angle * elapsed ) / raMovement.time;
-          currentRA = targetRA + ((raMovement.angle - offset)/15.0);
-        }
-        if (elapsed < decMovement.time) {
-          offset = ( decMovement.angle * elapsed ) / decMovement.time;
-          currentDEC = targetDEC + ( decMovement.angle - offset );
-        }
+    time_t currentTime;
+    time(&currentTime);
+    double offset;
+    double elapsed;
+    elapsed = difftime(currentTime, movementStart);
+    if (elapsed > 0) {
+      // interpolate RA position
+      if (elapsed < raMovement.time) {
+        offset = ( raMovement.angle * elapsed ) / raMovement.time;
+        currentRA = targetRA + ((raMovement.angle - offset)/15.0);
       }
-      if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
-        currentRA = targetRA;
-        currentDEC = targetDEC;
-        // Let's set state to TRACKING
-        TrackState = SCOPE_TRACKING;
-        DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+      if (elapsed < decMovement.time) {
+        offset = ( decMovement.angle * elapsed ) / decMovement.time;
+        currentDEC = targetDEC + ( decMovement.angle - offset );
       }
-      NewRaDec(currentRA, currentDEC);
+    }
+    if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+      currentRA = targetRA;
+      currentDEC = targetDEC;
+      // Let's set state to TRACKING
+      TrackState = SCOPE_TRACKING;
+      DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+    }
+    NewRaDec(currentRA, currentDEC);
     break;
     default:
     break;
@@ -428,45 +441,45 @@ bool GapersScope::ReadScopeStatus()
   }
   // Update AltAzimuthal Coordinates
   /*
-      void ln_get_hrz_from_equ	(	struct ln_equ_posn * 	object,
-        struct ln_lnlat_posn * 	observer,
-        double 	JD,
-        struct ln_hrz_posn * 	position
-        )
-  */
-  ln_equ_posn eqc;
-  ln_lnlat_posn eqa;
-  ln_hrz_posn psn;
+  void ln_get_hrz_from_equ	(	struct ln_equ_posn * 	object,
+  struct ln_lnlat_posn * 	observer,
+  double 	JD,
+  struct ln_hrz_posn * 	position
+)
+*/
+ln_equ_posn eqc;
+ln_lnlat_posn eqa;
+ln_hrz_posn psn;
 
-  eqc.ra = currentRA * 15.0;
-  eqc.dec = currentDEC;
-  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
-  if (eqa.lng > 180.) eqa.lng -= 360.;
-  eqa.lat = LocationN[LOCATION_LATITUDE].value;
-  ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
-  psn.az += 180.;
-  while (psn.az >= 360.) psn.az -= 360.;
-  while (psn.az < 0.) psn.az += 360.;
-  NewAltAz(psn.alt, psn.az);
+eqc.ra = currentRA * 15.0;
+eqc.dec = currentDEC;
+eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+if (eqa.lng > 180.) eqa.lng -= 360.;
+eqa.lat = LocationN[LOCATION_LATITUDE].value;
+ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
+// DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
+psn.az += 180.;
+while (psn.az >= 360.) psn.az -= 360.;
+while (psn.az < 0.) psn.az += 360.;
+NewAltAz(psn.alt, psn.az);
 
-  // If telescope is not moving and aim azimuth is more distant than threshold from
-  // dome azimuth, and dome control is in auto, then move dome accordingly
-  ISwitch *sw;
-  sw=IUFindSwitch(&domesyncSP,"AUTO");
-  if((sw != NULL)&&( sw->s==ISS_ON )) {
-    domeAzThreshold = domeAzThresholdN[0].value;
-    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
-      char azStr[64];
-      fs_sexa(azStr, psn.az, 2, 3600);
-      DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThreshold);
-      DomeGoto(psn.az);
-    }
+// If telescope is not moving and aim azimuth is more distant than threshold from
+// dome azimuth, and dome control is in auto, then move dome accordingly
+ISwitch *sw;
+sw=IUFindSwitch(&domesyncSP,"AUTO");
+if((sw != NULL)&&( sw->s==ISS_ON )) {
+  domeAzThreshold = domeAzThresholdN[0].value;
+  if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
+    char azStr[64];
+    fs_sexa(azStr, psn.az, 2, 3600);
+    DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThreshold);
+    DomeGoto(psn.az);
   }
+}
 
-  // Process serial communication with PLC
-  commHandler();
-  return true;
+// Process serial communication with PLC
+commHandler();
+return true;
 }
 
 bool GapersScope::_setMoveDataRA( double distance ) {
@@ -629,9 +642,9 @@ bool GapersScope::Sync(double ra, double dec)
   if((sw != NULL)&&( sw->s==ISS_ON )) {
     bool rc=DomeSync(psn.az);
     if (rc)
-      domeAzNP.s = IPS_OK;
+    domeAzNP.s = IPS_OK;
     else
-      domeAzNP.s = IPS_ALERT;
+    domeAzNP.s = IPS_ALERT;
     IDSetNumber(&domeAzNP, NULL);
   }
   return true;
@@ -693,28 +706,28 @@ bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_gir
     m_eq = (steps % qrange)+m_sq;
     m_giri = ((steps - qsafe) / 12800) + 1;
     if ( m_eq < (m_sq + qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-    m_sq += qsafe;
-    m_eq += qsafe;
+      m_sq += qsafe;
+      m_eq += qsafe;
+    }
+    // check for a nasty race condition in plc program
+    if (m_eq == 0) {
+      m_sq += 100;
+      m_eq = 100;
+    }
+  } else { // steps are negative (counterclockwise movement)
+    m_sq = 8388607;
+    m_eq = (steps % qrange)+m_sq;
+    m_giri = ((steps + qsafe) / 12800) -1;
+    if ( m_eq > (m_sq - qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
+      m_sq -= qsafe;
+      m_eq -= qsafe;
+    }
+    // check for a nasty race condition in plc program
+    if (m_eq == 0) {
+      m_sq -= 100;
+      m_eq = -100;
+    }
   }
-  // check for a nasty race condition in plc program
-  if (m_eq == 0) {
-    m_sq += 100;
-    m_eq = 100;
-  }
-} else { // steps are negative (counterclockwise movement)
-  m_sq = 8388607;
-  m_eq = (steps % qrange)+m_sq;
-  m_giri = ((steps + qsafe) / 12800) -1;
-  if ( m_eq > (m_sq - qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-  m_sq -= qsafe;
-  m_eq -= qsafe;
-}
-// check for a nasty race condition in plc program
-if (m_eq == 0) {
-  m_sq -= 100;
-  m_eq = -100;
-}
-}
 return true;
 }
 
@@ -866,18 +879,18 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         if((sw != NULL)&&( sw->s==ISS_ON )) {
           rc=DomeSync(az);
           if (rc)
-            domeAzNP.s = IPS_OK;
+          domeAzNP.s = IPS_OK;
           else
-            domeAzNP.s = IPS_ALERT;
+          domeAzNP.s = IPS_ALERT;
           IDSetNumber(&domeAzNP, NULL);
           return rc;
         }
         domeTargetAZ = az;
         rc = DomeGoto(az);
         if (rc)
-          domeAzNP.s = IPS_BUSY;
+        domeAzNP.s = IPS_BUSY;
         else
-          domeAzNP.s = IPS_ALERT;
+        domeAzNP.s = IPS_ALERT;
         IDSetNumber(&domeAzNP, NULL);
         return rc;
         // domeAzN[0].value = az;
@@ -1277,47 +1290,47 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
     // TODO: process var update command
     switch (syst) {
       case '1': // Var update in RA subsystem
-        switch (var) {
-          case 4:          // Stepper quote on PuntaGiri
-          case 8:					 // Stepper quote
-          if (whr == 1) { // 1 means end of slewing
-            currentRA = targetRA;
-            raIsMoving = false;
-            if (! decIsMoving) {
-              TrackState = SCOPE_TRACKING;
-              DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-            }
-            NewRaDec(currentRA, currentDEC);
+      switch (var) {
+        case 4:          // Stepper quote on PuntaGiri
+        case 8:					 // Stepper quote
+        if (whr == 1) { // 1 means end of slewing
+          currentRA = targetRA;
+          raIsMoving = false;
+          if (! decIsMoving) {
+            TrackState = SCOPE_TRACKING;
+            DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
           }
-        break;
+          NewRaDec(currentRA, currentDEC);
         }
+        break;
+      }
       break;
       case '2': // Var update in DEC subsystem
-        switch (var) {
-          case 4:          // Stepper quote on PuntaGiri
-          case 8:					 // Stepper quote
-            if (whr == 1) { // 1 means end of slewing
-              currentDEC = targetDEC;
-              decIsMoving = false;
-              if (! raIsMoving) {
-                TrackState = SCOPE_TRACKING;
-                DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-              }
-              NewRaDec(currentRA, currentDEC);
-            }
-          break;
-          case 9:         // Dome subsystem notifications
-            if (whr == 2) { // 2 means end of slewing
-              DomeTrackState = DOME_IDLE;
-              DEBUG(INDI::Logger::DBG_SESSION, "Dome rotation is complete. Stopped.");
-              DomeManualEnable(true);
-              domeAzN[0].value = domeCurrentAZ = domeTargetAZ;
-              domeAzNP.s = IPS_OK;
-              IDSetNumber(&domeAzNP, NULL);
-            }
-          break;
+      switch (var) {
+        case 4:          // Stepper quote on PuntaGiri
+        case 8:					 // Stepper quote
+        if (whr == 1) { // 1 means end of slewing
+          currentDEC = targetDEC;
+          decIsMoving = false;
+          if (! raIsMoving) {
+            TrackState = SCOPE_TRACKING;
+            DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
+          }
+          NewRaDec(currentRA, currentDEC);
         }
         break;
+        case 9:         // Dome subsystem notifications
+        if (whr == 2) { // 2 means end of slewing
+          DomeTrackState = DOME_IDLE;
+          DEBUG(INDI::Logger::DBG_SESSION, "Dome rotation is complete. Stopped.");
+          DomeManualEnable(true);
+          domeAzN[0].value = domeCurrentAZ = domeTargetAZ;
+          domeAzNP.s = IPS_OK;
+          IDSetNumber(&domeAzNP, NULL);
+        }
+        break;
+      }
+      break;
     }
   }
   else
