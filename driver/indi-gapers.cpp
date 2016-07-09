@@ -751,6 +751,8 @@ void GapersScope::ISGetProperties (const char *dev) {
 
 bool GapersScope::updateProperties()
 {
+  bool rc = true;
+  rc = INDI::Telescope::updateProperties();
 
   if(isConnected())
   {
@@ -761,6 +763,8 @@ bool GapersScope::updateProperties()
     defineSwitch(&domeCoordSP);
     defineNumber(&domeSpeedNP);
     defineNumber(&domeAzThresholdNP);
+
+    loadDefaultConfig();
   }
   else
   {
@@ -773,7 +777,7 @@ bool GapersScope::updateProperties()
     deleteProperty(domeAzThresholdNP.name);
   }
 
-  return INDI::Telescope::updateProperties();
+  return true;
 }
 
 bool GapersScope::saveConfigItems(FILE *fp) {
@@ -781,6 +785,7 @@ bool GapersScope::saveConfigItems(FILE *fp) {
   IUSaveConfigSwitch(fp, &domeCoordSP);
   IUSaveConfigNumber(fp, &domeSpeedNP);
   IUSaveConfigNumber(fp, &domeAzThresholdNP);
+  IUSaveConfigNumber(fp, &ScopeParametersNP);
 
   return INDI::Telescope::saveConfigItems(fp);
 }
