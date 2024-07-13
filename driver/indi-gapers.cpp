@@ -12,7 +12,7 @@ with an INDI-compatible client.
 #include "indi-gapers.h"
 #include <indicom.h>
 #include <inditelescope.h>
-#include <libnova.h>
+#include <libnova/libnova.h>
 #include <string>
 #include <unistd.h>
 
@@ -24,7 +24,7 @@ with an INDI-compatible client.
 
 const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
 const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
-const int   POLLMS = 250;                      /* poll period, ms */
+//const int   POLLMS = 250;                      /* poll period, ms */
 
 const char *DOME_TAB = "Cupola";
 
@@ -142,6 +142,15 @@ bool GapersScope::initProperties()
 
   IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f",0,10,0.1,2.0);
   IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDeviceName(), "DOME_THRESHOLD", "Dome azimuth threshold ", DOME_TAB, IP_RW, 60, IPS_IDLE);
+
+  // Add debug/simulation/etc controls to the driver.
+  addAuxControls();
+
+  serialConnection = new Connection::Serial(this);
+  serialConnection->registerHandshake([&]() { return Handshake(); });
+  serialConnection->setDefaultBaudRate(Connection::Serial::B_57600);
+  serialConnection->setDefaultPort("/dev/ttyACM0");
+  registerConnection(serialConnection);
 
   addSimulationControl();
   addDebugControl();

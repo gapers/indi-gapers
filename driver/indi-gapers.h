@@ -11,6 +11,12 @@ with an INDI-compatible client.
 #include <inditelescope.h>
 #include <queue>
 #include <string>
+
+namespace Connection
+{
+    class Serial;
+}
+
 class GapersScope : public INDI::Telescope
 {
 public:
@@ -65,6 +71,7 @@ protected:
   bool Sync(double,double);
   bool DomeSync(double);
   bool Abort();
+
 private:
   double currentRA;
   double currentDEC;
@@ -89,6 +96,12 @@ private:
   void SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri);
   void FinalizeMove();
   void SendCommand( char syst, short int cmd, long val );
+  bool Handshake();
+  bool sendCommand(const char *cmd);
+  int PortFD{-1};
+
+  Connection::Serial *serialConnection{nullptr};
+
 
   std::queue<std::string> _writequeue;
   std::string _readbuffer = "";
@@ -99,7 +112,7 @@ private:
   e_cstate c_state = STARTWAITING;
   time_t cmdEchoTimeout = 0;
 
-  // Properties representing encoder steps and stepper axle rounds used in
+  // Properties representing encoder steps and stepper axle revolutions used in
   // axis movement. RA and DEC share the same structure for tidyness
   struct AxisMovementParameters {
     double angle;
