@@ -1,26 +1,34 @@
+/*
+GAPers Telescope driver
+
+Copyright (C) 2024 Massimiliano Masserelli
+Copyright (C) 2024 Gruppo Astrofili Persicetani
+Copyright (C) 2014 Maurizio Serrazanetti
+*/
+
 #ifndef GAPERSSCOPE_H
 #define GAPERSSCOPE_H
-/*
-INDI Developers Manual
-Tutorial #2
-"Simple Telescope Driver"
-We develop a simple telescope simulator.
-Refer to README, which contains instruction on how to build this driver, and use it
-with an INDI-compatible client.
-*/
+
+#pragma once
+
+#include <string>
+#include "indicom.h"
+
+#include <stdint.h>
+
+
 #include <inditelescope.h>
 #include <queue>
 #include <string>
-
-namespace Connection
-{
-    class Serial;
-}
 
 class GapersScope : public INDI::Telescope
 {
 public:
   GapersScope();
+  virtual ~GapersScope() = default;
+
+  virtual const char *getDefaultName() override;
+
   void ISGetProperties(const char*);
   virtual bool ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n);
   virtual bool ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n);
@@ -54,16 +62,12 @@ protected:
   INumber domeAzThresholdN[1];
 
   // General device functions
-  bool Connect();
-  bool Connect(const char *port, uint16_t baud);
-  bool Disconnect();
-  const char *getDefaultName();
   void NewRaDec(double ra,double dec);
   void NewAltAz(double alt, double az);
-  virtual bool initProperties();
+  virtual bool initProperties() override;
   virtual bool updateProperties();
   virtual bool saveConfigItems(FILE *fp);
-  // Telescoe specific functions
+  // Telescope specific functions
   bool ReadScopeStatus();
   bool Goto(double,double);
   bool DomeGoto(double);
@@ -71,6 +75,7 @@ protected:
   bool Sync(double,double);
   bool DomeSync(double);
   bool Abort();
+  void TimerHit();
 
 private:
   double currentRA;
@@ -97,7 +102,6 @@ private:
   void FinalizeMove();
   void SendCommand( char syst, short int cmd, long val );
   bool Handshake();
-  bool sendCommand(const char *cmd);
   int PortFD{-1};
 
   Connection::Serial *serialConnection{nullptr};
