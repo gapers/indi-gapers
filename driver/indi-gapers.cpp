@@ -1,34 +1,44 @@
 /*
-INDI Developers Manual
-Tutorial #2
-"Simple Telescope Driver"
-We develop a simple telescope simulator.
-Refer to README, which contains instruction on how to build this driver, and use it
-with an INDI-compatible client.
+GAPers Telescope driver
+
+Copyright (C) 2024 Massimiliano Masserelli
+Copyright (C) 2024 Gruppo Astrofili Persicetani
+Copyright (C) 2014 Maurizio Serrazanetti
 */
-#include <sys/time.h>
-#include <math.h>
-#include <memory>
+
+#include "indicom.h"
+#include "indilogger.h"
 #include "indi-gapers.h"
-#include <indicom.h>
-#include <inditelescope.h>
-#include <libnova.h>
-#include <string>
+#include "libindi/connectionplugins/connectionserial.h"
+
+#include <libnova/libnova.h>
+
+#include <map>
+#include <cstring>
+#include <cmath>
+#include <termios.h>
 #include <unistd.h>
 
-#include <termios.h>
-#define PARITY_NONE    0
-#define PARITY_EVEN    1
-#define PARITY_ODD     2
+
+#include <sys/time.h>
+#include <sys/ioctl.h>
 #include <fcntl.h>
+#include <math.h>
+#include "config.h"
+
+#define PARITY_NONE 0
+#define PARITY_EVEN 1
+#define PARITY_ODD  2
 
 const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
 const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
-const int   POLLMS = 250;                      /* poll period, ms */
+//const int   POLLMS = 250;                      /* poll period, ms */
 
 const char *DOME_TAB = "Cupola";
 
-std::auto_ptr<GapersScope> gapersScope(0);
+// std::auto_ptr<GapersScope> gapersScope(0);
+static std::unique_ptr<GapersScope> gapersScope(new GapersScope());
+
 /**************************************************************************************
 ** Initilize GapersScope object
 ***************************************************************************************/
@@ -93,19 +103,15 @@ void ISSnoopDevice (XMLEle *root)
 
 GapersScope::GapersScope()
 {
+  setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
   currentRA  = 0;
   currentDEC = 90;
   // We add an additional debug level so we can log verbose scope status
   DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
-  // capability = TELESCOPE_CAN_SYNC;
-  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION, 0); // Telescope can sync and has a single slew rate
-  // TelescopeCapability cap;
-  // cap.canPark = false;
-  // cap.canSync = true;
-  // cap.canAbort = false;
-  // cap.hasLocation = false;
-  // cap.hasTime = false;
-  // SetTelescopeCapability(&cap);
+  
+  // Set telescope capabilities
+  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0); 
+
 }
 /**************************************************************************************
 ** We init our properties here. The only thing we want to init are the Debug controls
@@ -118,53 +124,56 @@ bool GapersScope::initProperties()
   // Add J2K Coordinates handler
   IUFillNumber(&Eq2kN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
   IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
-  IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDeviceName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
+  IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDefaultName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
 
   // Dome properties
   IUFillSwitch(&domesyncS[0], "AUTO", "Auto", ISS_ON);
   IUFillSwitch(&domesyncS[1], "MANUAL", "Manual", ISS_OFF);
-  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDeviceName(), "DOME_MOVEMENT", "Dome Movement", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
+  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDefaultName(), "DOME_MOVEMENT", "Dome Movement", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
   // Add Alt Az coordinates
   IUFillNumber(&AaN[AXIS_ALT], "ALT", "Alt (dd:mm:ss)","%010.6m",-90,90,0,0);
   IUFillNumber(&AaN[AXIS_AZ], "AZ", "Az (dd:mm:ss)","%010.6m",0,360,0,0);
-  IUFillNumberVector(&AaNP,AaN,2,getDeviceName(),"ALTAZ_COORD","AltAzimuthal Coordinates",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
+  IUFillNumberVector(&AaNP,AaN,2,getDefaultName(),"ALTAZ_COORD","AltAzimuthal Coordinates",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
 
   IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m",0,360,0,0);
-  IUFillNumberVector(&domeAzNP, domeAzN, 1, getDeviceName(), "DOME_AZIMUTH", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
+  IUFillNumberVector(&domeAzNP, domeAzN, 1, getDefaultName(), "DOME_AZIMUTH", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   IUFillSwitch(&domeCoordS[0],"SLEW","Slew",ISS_ON);
   IUFillSwitch(&domeCoordS[1],"SYNC","Sync",ISS_OFF);
-  IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDeviceName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
+  IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDefaultName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
 
   IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f",0,150,0.01,94.33);
-  IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDeviceName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
+  IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDefaultName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f",0,10,0.1,2.0);
-  IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDeviceName(), "DOME_THRESHOLD", "Dome azimuth threshold ", DOME_TAB, IP_RW, 60, IPS_IDLE);
+  IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDefaultName(), "DOME_THRESHOLD", "Dome azimuth threshold ", DOME_TAB, IP_RW, 60, IPS_IDLE);
+
+  // Add debug/simulation/etc controls to the driver.
+  addAuxControls();
+
+  serialConnection = new Connection::Serial(this);
+  serialConnection->registerHandshake([&]() { return Handshake(); });
+  serialConnection->setDefaultBaudRate(Connection::Serial::B_57600);
+  serialConnection->setDefaultPort("/dev/ttyACM0");
+  registerConnection(serialConnection);
 
   addSimulationControl();
   addDebugControl();
   return true;
 }
-/**************************************************************************************
-** Client is asking us to establish connection to the device
-***************************************************************************************/
-bool GapersScope::Connect()
-{
-  bool rc=false;
 
-  if (isConnected())
-  return true;
-
-  rc=Connect(PortT[0].text, atoi(IUFindOnSwitch(&BaudRateSP)->name));
-  if (rc) {
-    // Let's set a timer that checks telescopes status every POLLMS milliseconds.
-    SetTimer(POLLMS);
-    DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope connected successfully!");
-  } else {
-    DEBUG(INDI::Logger::DBG_SESSION, "Error setting up connection with GAPers telescope.");
+bool GapersScope::Handshake() {
+  if (isSimulation()) {
+    LOGF_INFO("Connected successfully to simulated %s", getDeviceName());
+    return true;
   }
+
+  // TODO: Any initial communication needed with our device; we have an active
+  // connection with a valid file descriptor called PortFD. This file descriptor
+  // can be used with the tty_* functions in indicom.h
+
+  DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope connected successfully!");
 
   // Init serial communication handler buffers and state
   _writequeue = std::queue<std::string>();
@@ -176,42 +185,26 @@ bool GapersScope::Connect()
   TrackState = SCOPE_TRACKING;
   DomeTrackState = DOME_IDLE;
 
-  return rc;
-}
+  // Let's set a timer that checks telescopes status every POLLMS milliseconds.
+  SetTimer(POLLMS);
 
-bool GapersScope::Connect(const char *port, uint16_t baud) {
-  int connectrc = 0;
-  char errorMsg[MAXRBUF];
-
-  if (isSimulation()) {
-    DEBUG(INDI::Logger::DBG_SESSION, "Telescope connected in simulation mode.");
-    return true;
-  }
-
-  DEBUGF(INDI::Logger::DBG_SESSION, "GAPers Scope connecting to %s at %dbps.", port, baud);
-  if ( (connectrc = tty_connect(port, baud, 8, PARITY_EVEN, 1, &PortFD)) != TTY_OK) {
-    tty_error_msg(connectrc, errorMsg, MAXRBUF);
-    DEBUGF(INDI::Logger::DBG_SESSION, "Failed to connect to port %s. Error: %s", port, errorMsg);
-    return false;
-  }
-  DEBUGF(INDI::Logger::DBG_WARNING, "Port FD: %d", PortFD);
-  // TODO: test connection
-  DEBUG(INDI::Logger::DBG_SESSION, "Telescope is online.");
   return true;
 }
 
-/**************************************************************************************
-** Client is asking us to terminate connection to the device
-***************************************************************************************/
-bool GapersScope::Disconnect()
-{
-  if (! isSimulation() ) {
-    tty_disconnect(PortFD);
-    DEBUG(INDI::Logger::DBG_WARNING, "Telescope is offline.");
-  }
-  DEBUG(INDI::Logger::DBG_SESSION, "GAPers Scope disconnected successfully!");
-  return true;
+/*****
+ * INDI Timer method
+ */
+void GapersScope::TimerHit() {
+  if (!isConnected())
+    return;
+
+  ReadScopeStatus();
+
+  // Let's set a timer that checks telescopes status every POLLMS milliseconds.
+  SetTimer(POLLMS);
+
 }
+
 /**************************************************************************************
 ** INDI is asking us for our default device name
 ***************************************************************************************/
@@ -398,33 +391,33 @@ bool GapersScope::ReadScopeStatus()
   switch (TrackState)
   {
     case SCOPE_SLEWING:
-    time_t currentTime;
-    time(&currentTime);
-    double offset;
-    double elapsed;
-    elapsed = difftime(currentTime, movementStart);
-    if (elapsed > 0) {
-      // interpolate RA position
-      if (elapsed < raMovement.time) {
-        offset = ( raMovement.angle * elapsed ) / raMovement.time;
-        currentRA = targetRA + ((raMovement.angle - offset)/15.0);
+      time_t currentTime;
+      time(&currentTime);
+      double offset;
+      double elapsed;
+      elapsed = difftime(currentTime, movementStart);
+      if (elapsed > 0) {
+        // interpolate RA position
+        if (elapsed < raMovement.time) {
+          offset = ( raMovement.angle * elapsed ) / raMovement.time;
+          currentRA = targetRA + ((raMovement.angle - offset)/15.0);
+        }
+        if (elapsed < decMovement.time) {
+          offset = ( decMovement.angle * elapsed ) / decMovement.time;
+          currentDEC = targetDEC + ( decMovement.angle - offset );
+        }
       }
-      if (elapsed < decMovement.time) {
-        offset = ( decMovement.angle * elapsed ) / decMovement.time;
-        currentDEC = targetDEC + ( decMovement.angle - offset );
+      if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+        currentRA = targetRA;
+        currentDEC = targetDEC;
+        // Let's set state to TRACKING
+        TrackState = SCOPE_TRACKING;
+        DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
       }
-    }
-    if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
-      currentRA = targetRA;
-      currentDEC = targetDEC;
-      // Let's set state to TRACKING
-      TrackState = SCOPE_TRACKING;
-      DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
-    }
-    NewRaDec(currentRA, currentDEC);
-    break;
+      NewRaDec(currentRA, currentDEC);
+      break;
     default:
-    break;
+      break;
   }
   if (DomeTrackState == DOME_SLEWING) {
     domeAzN[0].value = domeTargetAZ - (rangeDistance(domeTargetAZ - domeCurrentAZ) > 0 ? 1 : -1) * ((domeMovementEnd - time(NULL)) / (domeSpeedN[0].value / 360.0));
@@ -440,46 +433,39 @@ bool GapersScope::ReadScopeStatus()
     IDSetNumber(&domeAzNP, NULL);
   }
   // Update AltAzimuthal Coordinates
-  /*
-  void ln_get_hrz_from_equ	(	struct ln_equ_posn * 	object,
-  struct ln_lnlat_posn * 	observer,
-  double 	JD,
-  struct ln_hrz_posn * 	position
-)
-*/
-ln_equ_posn eqc;
-ln_lnlat_posn eqa;
-ln_hrz_posn psn;
+  ln_equ_posn eqc;
+  ln_lnlat_posn eqa;
+  ln_hrz_posn psn;
 
-eqc.ra = currentRA * 15.0;
-eqc.dec = currentDEC;
-eqa.lng = LocationN[LOCATION_LONGITUDE].value;
-if (eqa.lng > 180.) eqa.lng -= 360.;
-eqa.lat = LocationN[LOCATION_LATITUDE].value;
-ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-// DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
-psn.az += 180.;
-while (psn.az >= 360.) psn.az -= 360.;
-while (psn.az < 0.) psn.az += 360.;
-NewAltAz(psn.alt, psn.az);
+  eqc.ra = currentRA * 15.0;
+  eqc.dec = currentDEC;
+  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  if (eqa.lng > 180.) eqa.lng -= 360.;
+  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
+  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
+  psn.az += 180.;
+  while (psn.az >= 360.) psn.az -= 360.;
+  while (psn.az < 0.) psn.az += 360.;
+  NewAltAz(psn.alt, psn.az);
 
-// If telescope is not moving and aim azimuth is more distant than threshold from
-// dome azimuth, and dome control is in auto, then move dome accordingly
-ISwitch *sw;
-sw=IUFindSwitch(&domesyncSP,"AUTO");
-if((sw != NULL)&&( sw->s==ISS_ON )) {
-  domeAzThreshold = domeAzThresholdN[0].value;
-  if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
-    char azStr[64];
-    fs_sexa(azStr, psn.az, 2, 3600);
-    DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThreshold);
-    DomeGoto(psn.az);
+  // If telescope is not moving and aim azimuth is more distant than threshold from
+  // dome azimuth, and dome control is in auto, then move dome accordingly
+  ISwitch *sw;
+  sw=IUFindSwitch(&domesyncSP,"AUTO");
+  if((sw != NULL)&&( sw->s==ISS_ON )) {
+    domeAzThreshold = domeAzThresholdN[0].value;
+    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
+      char azStr[64];
+      fs_sexa(azStr, psn.az, 2, 3600);
+      DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThreshold);
+      DomeGoto(psn.az);
+    }
   }
-}
 
-// Process serial communication with PLC
-commHandler();
-return true;
+  // Process serial communication with PLC
+  commHandler();
+  return true;
 }
 
 bool GapersScope::_setMoveDataRA( double distance ) {
@@ -777,7 +763,7 @@ bool GapersScope::updateProperties()
     deleteProperty(domeAzThresholdNP.name);
   }
 
-  return true;
+  return rc;
 }
 
 bool GapersScope::saveConfigItems(FILE *fp) {
@@ -808,19 +794,19 @@ void GapersScope::NewRaDec(double ra,double dec) {
   {
     case SCOPE_PARKED:
     case SCOPE_IDLE:
-    Eq2kNP.s=IPS_IDLE;
-    break;
+      Eq2kNP.s=IPS_IDLE;
+      break;
 
     case SCOPE_SLEWING:
-    Eq2kNP.s=IPS_BUSY;
-    break;
+      Eq2kNP.s=IPS_BUSY;
+      break;
 
     case SCOPE_TRACKING:
-    Eq2kNP.s=IPS_OK;
-    break;
+      Eq2kNP.s=IPS_OK;
+      break;
 
     default:
-    break;
+      break;
   }
 
   ln_equ_posn jnow, j2k;
@@ -842,7 +828,7 @@ void GapersScope::NewRaDec(double ra,double dec) {
 
 bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n) {
   //  first check if it's for our device
-  if(strcmp(dev,getDeviceName())==0) {
+  if(strcmp(dev,getDefaultName())==0) {
     bool rc=false;
     double az=-1;
     if(strcmp(name,"DOME_THRESHOLD")==0) {
@@ -963,7 +949,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
 }
 
 bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n) {
-  if(strcmp(dev,getDeviceName())==0) {
+  if(strcmp(dev,getDefaultName())==0) {
     //  This one is for us
     if(!strcmp(name,domeCoordSP.name)) {
       //  client is telling us what to do with co-ordinate requests
@@ -1192,7 +1178,7 @@ void GapersScope::commHandler() {
     int rlen=0; // number of chars read by read below
     rlen = read(PortFD, inbuf, 80);
     if (rlen == -1) {
-      DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %d\n", PortT[0].text, strerror(errno));
+      DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %d\n", serialConnection->port(), strerror(errno));
       Disconnect();
       return;
     }
@@ -1261,7 +1247,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // most of the code, CRC check is silently ignored and can happily be
   // filled with imaginary powers of 42.
   char    syst;
-  char *  ps;
+  // char *  ps;
   char    cmd[ 8];
 
   if (msg.empty()) return;

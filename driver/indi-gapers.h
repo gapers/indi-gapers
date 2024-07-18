@@ -1,20 +1,34 @@
+/*
+GAPers Telescope driver
+
+Copyright (C) 2024 Massimiliano Masserelli
+Copyright (C) 2024 Gruppo Astrofili Persicetani
+Copyright (C) 2014 Maurizio Serrazanetti
+*/
+
 #ifndef GAPERSSCOPE_H
 #define GAPERSSCOPE_H
-/*
-INDI Developers Manual
-Tutorial #2
-"Simple Telescope Driver"
-We develop a simple telescope simulator.
-Refer to README, which contains instruction on how to build this driver, and use it
-with an INDI-compatible client.
-*/
+
+#pragma once
+
+#include <string>
+#include "indicom.h"
+
+#include <stdint.h>
+
+
 #include <inditelescope.h>
 #include <queue>
 #include <string>
+
 class GapersScope : public INDI::Telescope
 {
 public:
   GapersScope();
+  virtual ~GapersScope() = default;
+
+  virtual const char *getDefaultName() override;
+
   void ISGetProperties(const char*);
   virtual bool ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n);
   virtual bool ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n);
@@ -48,16 +62,12 @@ protected:
   INumber domeAzThresholdN[1];
 
   // General device functions
-  bool Connect();
-  bool Connect(const char *port, uint16_t baud);
-  bool Disconnect();
-  const char *getDefaultName();
   void NewRaDec(double ra,double dec);
   void NewAltAz(double alt, double az);
-  virtual bool initProperties();
+  virtual bool initProperties() override;
   virtual bool updateProperties();
   virtual bool saveConfigItems(FILE *fp);
-  // Telescoe specific functions
+  // Telescope specific functions
   bool ReadScopeStatus();
   bool Goto(double,double);
   bool DomeGoto(double);
@@ -65,6 +75,8 @@ protected:
   bool Sync(double,double);
   bool DomeSync(double);
   bool Abort();
+  void TimerHit();
+
 private:
   double currentRA;
   double currentDEC;
@@ -89,6 +101,11 @@ private:
   void SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri);
   void FinalizeMove();
   void SendCommand( char syst, short int cmd, long val );
+  bool Handshake();
+  int PortFD{-1};
+
+  Connection::Serial *serialConnection{nullptr};
+
 
   std::queue<std::string> _writequeue;
   std::string _readbuffer = "";
@@ -99,7 +116,7 @@ private:
   e_cstate c_state = STARTWAITING;
   time_t cmdEchoTimeout = 0;
 
-  // Properties representing encoder steps and stepper axle rounds used in
+  // Properties representing encoder steps and stepper axle revolutions used in
   // axis movement. RA and DEC share the same structure for tidyness
   struct AxisMovementParameters {
     double angle;
