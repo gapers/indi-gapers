@@ -1,6 +1,9 @@
 CMakeCache.txt
-CMakeFiles/
 Makefile
 cmake_install.cmake
 indi_gapers
 tags
+config.h
+indi_gapers.xml
+install_manifest.txt
+CMakeFiles
