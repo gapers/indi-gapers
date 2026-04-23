@@ -119,7 +119,7 @@ assert_equals "Ok" "$STATE_SIM" "Simulation connect"
 # Test 2: virtual serial real-mode should be handled by INDI (Alert or Ok)
 indi_setprop "GAPers Telescope.CONNECTION.DISCONNECT=On"
 indi_setprop "GAPers Telescope.DEVICE_AUTO_SEARCH.INDI_DISABLED=On"
-indi_setprop "GAPers Telescope.SIMULATION.ENABLE=Off"
+indi_setprop "GAPers Telescope.SIMULATION.DISABLE=On"
 indi_setprop "GAPers Telescope.DEVICE_PORT.PORT=$PTY_A"
 indi_setprop "GAPers Telescope.CONNECTION.CONNECT=On" || true
 sleep 2

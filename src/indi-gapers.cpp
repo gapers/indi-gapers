@@ -755,8 +755,6 @@ bool GapersScope::updateProperties()
     defineProperty(&domeCoordSP);
     defineProperty(&domeSpeedNP);
     defineProperty(&domeAzThresholdNP);
-
-    loadDefaultConfig();
   }
   else
   {
