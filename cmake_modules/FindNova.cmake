@@ -1,55 +1,41 @@
-# - Try to find NOVA
+# - Try to find libnova
 # Once done this will define
 #
-#  NOVA_FOUND - system has NOVA
-#  NOVA_INCLUDE_DIR - the NOVA include directory
-#  NOVA_LIBRARIES - Link these to use NOVA
+#  NOVA_FOUND - system has libnova
+#  NOVA_INCLUDE_DIR - the libnova include directory
+#  NOVA_LIBRARIES - Link these to use libnova
 
-# Copyright (c) 2006, Jasem Mutlaq <mutlaqja@ikarustech.com>
-# Based on FindLibfacile by Carsten Niehaus, <cniehaus@gmx.de>
-#
-# Redistribution and use is allowed according to the terms of the BSD license.
-# For details see the accompanying COPYING-CMAKE-SCRIPTS file.
-
-if (NOVA_INCLUDE_DIR AND NOVA_LIBRARIES)
-
-  # in cache already
-  set(NOVA_FOUND TRUE)
-  message(STATUS "Found libnova: ${NOVA_LIBRARIES}")
-
-else (NOVA_INCLUDE_DIR AND NOVA_LIBRARIES)
-
-  find_path(NOVA_INCLUDE_DIR libnova/libnova.h
-    PATH_SUFFIXES
+find_path(NOVA_INCLUDE_DIR
+  NAMES libnova/libnova.h
+  HINTS
     ${_obIncDir}
     ${GNUWIN32_DIR}/include
-  )
+)
 
-  find_library(NOVA_LIBRARIES NAMES nova libnova libnovad
-    PATHS
+find_library(NOVA_LIBRARIES
+  NAMES nova libnova libnovad
+  HINTS
     ${_obLinkDir}
     ${GNUWIN32_DIR}/lib
+)
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(Nova
+  REQUIRED_VARS
+    NOVA_INCLUDE_DIR
+    NOVA_LIBRARIES
+  FAIL_MESSAGE "libnova not found. Please install libnova development package."
+)
+
+if(Nova_FOUND AND NOT TARGET Nova::Nova)
+  add_library(Nova::Nova UNKNOWN IMPORTED)
+  set_target_properties(Nova::Nova PROPERTIES
+    IMPORTED_LOCATION "${NOVA_LIBRARIES}"
+    INTERFACE_INCLUDE_DIRECTORIES "${NOVA_INCLUDE_DIR}"
   )
+endif()
 
- set(CMAKE_REQUIRED_INCLUDES ${NOVA_INCLUDE_DIR})
- set(CMAKE_REQUIRED_LIBRARIES ${NOVA_LIBRARIES})
+# Keep legacy variable spelling for old consumers.
+set(NOVA_FOUND ${Nova_FOUND})
 
-   if(NOVA_INCLUDE_DIR AND NOVA_LIBRARIES)
-    set(NOVA_FOUND TRUE)
-  else (NOVA_INCLUDE_DIR AND NOVA_LIBRARIES)
-    set(NOVA_FOUND FALSE)
-  endif(NOVA_INCLUDE_DIR AND NOVA_LIBRARIES)
-
-  if (NOVA_FOUND)
-    if (NOT Nova_FIND_QUIETLY)
-      message(STATUS "Found NOVA: ${NOVA_LIBRARIES}")
-    endif (NOT Nova_FIND_QUIETLY)
-  else (NOVA_FOUND)
-    if (Nova_FIND_REQUIRED)
-      message(FATAL_ERROR "libnova not found. Please install libnova development package.")
-    endif (Nova_FIND_REQUIRED)
-  endif (NOVA_FOUND)
-
-  mark_as_advanced(NOVA_INCLUDE_DIR NOVA_LIBRARIES)
-  
-endif (NOVA_INCLUDE_DIR AND NOVA_LIBRARIES)
+mark_as_advanced(NOVA_INCLUDE_DIR NOVA_LIBRARIES)
