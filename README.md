@@ -142,34 +142,26 @@ La suite verifica almeno:
 - connessione in modalità simulation (`IPS Ok`)
 - gestione connessione in modalità reale su seriale virtuale (`IPS Ok` oppure `IPS Alert` gestito)
 
-### Suite movimento telescopio + comandi PLC
+### Test E2E PLC FIFO via CMake/CTest
 
-È disponibile anche una suite di unit test che verifica:
+Il test `scripts/e2e_plc_fifo_test.py` è registrato in CMake come test CTest `gapers_plc_fifo_e2e`.
 
-- correttezza del calcolo dei passi asse RA/DEC per movimenti brevi
-- correttezza della procedura a giri per movimenti lunghi (quote iniziale/finale + giri)
-- correttezza del wrapping angolare (range -180/+180 gradi)
-- validazione della distanza angolare in entrambe le direzioni (nord/sud per declinazione)
-- **correttezza del calcolo tempo movimento cupola** (azimuth, speed, wrapping 0-360°)
-- **validazione edge case di movimento nullo della cupola**
-- **verifica del percorso più breve attraverso confine 0°**
-- **movimento sincrono RA/DEC**: validazione movimento diagonale
-- **rapporto velocità assi**: RA (220088.2 step/°) vs DEC (192000.0 step/°)
-- **selezione comando**: distingue movimenti sincronizzati vs singolo asse
-- **tempo massimo movimento**: l'asse più lento determina tempo totale
-
-Esecuzione:
+Sintassi consigliata (build out-of-source):
 
 ```bash
-python3 scripts/test_motion_and_plc_commands.py
+cmake -S . -B build -DBUILD_TESTING=ON
+cmake --build build -j
+ctest --test-dir build --output-on-failure -R gapers_plc_fifo_e2e
 ```
 
-Prerequisiti runtime:
+Alternativa equivalente dalla directory `build/`:
 
-- `python3`
+```bash
+cd build
+ctest --output-on-failure -R gapers_plc_fifo_e2e
+```
 
-La suite è una suite di unit test pura (nessuna dipendenza da INDI server o hardware) che valida
-le formule matematiche di movimento del driver C++ rispetto a costanti di telescopio/motori.
+Nota: se durante la configurazione mancano uno o più prerequisiti (`python3`, `indiserver`, `indi_getprop`, `indi_setprop`, `socat`), CMake salta la registrazione del test E2E.
 
 ### Avviare il server INDI con il driver (hardware reale)
 

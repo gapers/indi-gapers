@@ -2,7 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DRIVER_BIN="$ROOT_DIR/indi_gapers"
+# Prefer out-of-source build (cmake -S . -B build) as documented in README
+if [[ -x "$ROOT_DIR/build/indi_gapers" ]]; then
+  DRIVER_BIN="$ROOT_DIR/build/indi_gapers"
+else
+  DRIVER_BIN="$ROOT_DIR/indi_gapers"
+fi
 
 USE_EMULATOR=0
 if [[ "${1:-}" == "--with-emulator" ]]; then
@@ -17,8 +22,10 @@ for cmd in socat indiserver indi_getprop indi_setprop python3; do
 done
 
 if [[ ! -x "$DRIVER_BIN" ]]; then
-  echo "[INFO] Build not found, running make"
-  (cd "$ROOT_DIR" && make -j"$(nproc)")
+  echo "[INFO] Build not found, running cmake --build build"
+  cmake -S "$ROOT_DIR" -B "$ROOT_DIR/build"
+  cmake --build "$ROOT_DIR/build" -j"$(nproc)"
+  DRIVER_BIN="$ROOT_DIR/build/indi_gapers"
 fi
 
 TMP_DIR="$(mktemp -d)"

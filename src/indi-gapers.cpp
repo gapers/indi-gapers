@@ -105,31 +105,33 @@ bool GapersScope::initProperties()
   INDI::Telescope::initProperties();
 
   // Add J2K Coordinates handler
-  IUFillNumber(&Eq2kN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
-  IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
-  IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDefaultName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
+  IUFillNumber(&Eq2kN[0], "RA", "RA (hh:mm:ss)", "%010.6m", 0, 24, 0, 0);
+  IUFillNumber(&Eq2kN[1], "DEC", "DEC (dd:mm:ss)", "%010.6m", -90, 90, 0, 90);
+  IUFillNumberVector(&Eq2kNP, Eq2kN, 2, getDefaultName(), "EQUATORIAL_COORD", "Eq. Coordinates J2000", MAIN_CONTROL_TAB, IP_RW, 60, IPS_IDLE);
 
-  // Dome properties
+  // Dome auto-sync property
   IUFillSwitch(&domesyncS[0], "AUTO", "Auto", ISS_ON);
   IUFillSwitch(&domesyncS[1], "MANUAL", "Manual", ISS_OFF);
   IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDefaultName(), "DOME_MOVEMENT", "Dome Movement", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
   // Add Alt Az coordinates
-  IUFillNumber(&AaN[AXIS_ALT], "ALT", "Alt (dd:mm:ss)","%010.6m",-90,90,0,0);
-  IUFillNumber(&AaN[AXIS_AZ], "AZ", "Az (dd:mm:ss)","%010.6m",0,360,0,0);
-  IUFillNumberVector(&AaNP,AaN,2,getDefaultName(),"ALTAZ_COORD","AltAzimuthal Coordinates",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
+  IUFillNumber(&AaN[0], "ALT", "Alt (dd:mm:ss)", "%010.6m", -90, 90, 0, 0);
+  IUFillNumber(&AaN[1], "AZ", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
+  IUFillNumberVector(&AaNP, AaN, 2, getDefaultName(), "ALTAZ_COORD", "AltAzimuthal Coordinates", MAIN_CONTROL_TAB, IP_RO, 60, IPS_IDLE);
 
-  IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m",0,360,0,0);
+  // Dome azimuth and slew mode
+  IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
   IUFillNumberVector(&domeAzNP, domeAzN, 1, getDefaultName(), "DOME_AZIMUTH", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
-  IUFillSwitch(&domeCoordS[0],"SLEW","Slew",ISS_ON);
-  IUFillSwitch(&domeCoordS[1],"SYNC","Sync",ISS_OFF);
-  IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDefaultName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
+  IUFillSwitch(&domeCoordS[0], "SLEW", "Slew", ISS_ON);
+  IUFillSwitch(&domeCoordS[1], "SYNC", "Sync", ISS_OFF);
+  IUFillSwitchVector(&domeCoordSP, domeCoordS, 2, getDefaultName(), "DOME_ON_COORD_SET", "On Set", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
-  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f",0,150,0.01,94.33);
+  // Dome speed and azimuth threshold
+  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f", 0, 150, 0.01, 94.33);
   IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDefaultName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
-  IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f",0,10,0.1,2.0);
+  IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f", 0, 10, 0.1, 2.0);
   IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDefaultName(), "DOME_THRESHOLD", "Dome azimuth threshold ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   // Add debug/simulation/etc controls to the driver.
@@ -145,15 +147,9 @@ bool GapersScope::initProperties()
   addDebugControl();
 
   // Require an initial sync before motion: start ON_COORD_SET in SYNC mode.
-  auto slewSW  = CoordSP.findWidgetByName("SLEW");
-  auto trackSW = CoordSP.findWidgetByName("TRACK");
-  auto syncSW  = CoordSP.findWidgetByName("SYNC");
-  if (slewSW && trackSW && syncSW)
-  {
-    slewSW->setState(ISS_OFF);
-    trackSW->setState(ISS_OFF);
-    syncSW->setState(ISS_ON);
-  }
+  IUResetSwitch(&domeCoordSP);
+  domeCoordS[0].s = ISS_OFF;  // SLEW - off
+  domeCoordS[1].s = ISS_ON;   // SYNC - on
 
   return true;
 }
@@ -291,7 +287,8 @@ bool GapersScope::Goto(double ra, double dec)
     FinalizeMove();
 
     // Actually move dome only if telescope is moving
-    if (domesyncS[0].s == ISS_ON) {
+    auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+    if ((domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON)) {
       DomeGoto(psn.az);
     }
 
@@ -312,7 +309,8 @@ bool GapersScope::Goto(double ra, double dec)
     NewRaDec(currentRA, currentDEC);
     
     // If Dome in auto mode, sync dome to telescope azimuth
-    if (domesyncS[0].s == ISS_ON) {
+    auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+    if ((domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON)) {
       DomeSync(psn.az);
     }
     return true;
@@ -633,8 +631,8 @@ bool GapersScope::saveConfigItems(FILE *fp) {
 }
 
 void GapersScope::NewAltAz(double alt, double az) {
-  AaN[AXIS_ALT].value = alt;
-  AaN[AXIS_AZ].value = az;
+  AaN[0].value = alt;
+  AaN[1].value = az;
   AaNP.s = IPS_IDLE;
   IDSetNumber(&AaNP, NULL);
 }
@@ -672,10 +670,10 @@ void GapersScope::NewRaDec(double ra,double dec) {
   ln_get_equ_prec2(&jnow, ln_get_julian_from_sys(), JD2000, &j2k);
   j2k.ra /= 15.0;
 
-  if (Eq2kN[AXIS_RA].value != j2k.ra || Eq2kN[AXIS_DE].value != j2k.dec || Eq2kNP.s != lastEq2kState)
+  if (Eq2kN[0].value != j2k.ra || Eq2kN[1].value != j2k.dec || Eq2kNP.s != lastEq2kState)
   {
-    Eq2kN[AXIS_RA].value=j2k.ra;
-    Eq2kN[AXIS_DE].value=j2k.dec;
+    Eq2kN[0].value = j2k.ra;
+    Eq2kN[1].value = j2k.dec;
     lastEq2kState = Eq2kNP.s;
     IDSetNumber(&Eq2kNP, NULL);
   }
@@ -689,8 +687,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
     double az=-1;
     if(strcmp(name,"DOME_THRESHOLD")==0) {
       for (int x=0; x<n; x++) {
-        INumber *th = IUFindNumber(&domeAzThresholdNP, names[x]);
-        if (th == &domeAzThresholdN[0]) {
+        if (!strcmp(names[x], "THRESHOLD")) {
           domeAzThresholdN[0].value = values[x];
         }
       }
@@ -698,23 +695,22 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       IDSetNumber(&domeAzThresholdNP, NULL);
     } else if(strcmp(name,"DOME_SPEED")==0) {
       for (int x=0; x<n; x++) {
-        INumber *sp = IUFindNumber(&domeSpeedNP, names[x]);
-        if (sp == &domeSpeedN[0]) {
+        if (!strcmp(names[x], "SPEED")) {
           domeSpeedN[0].value = values[x];
         }
       }
-      domeSpeedNP.s=IPS_OK;
+      domeSpeedNP.s = IPS_OK;
       IDSetNumber(&domeSpeedNP, NULL);
     } else if(strcmp(name,"DOME_AZIMUTH")==0) {
-      if (domesyncS[0].s == ISS_ON) {
+      auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+      if (domeAutoSw != nullptr && domeAutoSw->s == ISS_ON) {
         DEBUG(INDI::Logger::DBG_WARNING, "Cannot set azimuth while in auto mode.");
-        domeAzNP.s=IPS_OK;
+        domeAzNP.s = IPS_OK;
         IDSetNumber(&domeAzNP, NULL);
         return true;
       }
       for (int x=0; x<n; x++) {
-        INumber *azp = IUFindNumber(&domeAzNP, names[x]);
-        if (azp == &domeAzN[0]) {
+        if (!strcmp(names[x], "AZIMUTH")) {
           az = values[x];
         }
       }
@@ -733,9 +729,9 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         domeTargetAZ = az;
         rc = DomeGoto(az);
         if (rc)
-        domeAzNP.s = IPS_BUSY;
+          domeAzNP.s = IPS_BUSY;
         else
-        domeAzNP.s = IPS_ALERT;
+          domeAzNP.s = IPS_ALERT;
         IDSetNumber(&domeAzNP, NULL);
         return rc;
       }
@@ -749,10 +745,9 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
 
       for (int x=0; x<n; x++)
       {
-        INumber *eqp = IUFindNumber (&Eq2kNP, names[x]);
-        if (eqp == &Eq2kN[AXIS_RA]) {
+        if (!strcmp(names[x], "RA")) {
           ra = values[x];
-        } else if (eqp == &Eq2kN[AXIS_DE]) {
+        } else if (!strcmp(names[x], "DEC")) {
           dec = values[x];
         }
       }
@@ -768,7 +763,8 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         if (CanPark()) {
           if (isParked()) {
             DEBUG(INDI::Logger::DBG_WARNING, "Please unpark the mount before issuing any motion/sync commands.");
-            Eq2kNP.s = lastEq2kState = IPS_IDLE;
+            Eq2kNP.s = IPS_IDLE;
+            lastEq2kState = IPS_IDLE;
             IDSetNumber(&Eq2kNP, NULL);
             return false;
           }
@@ -781,7 +777,8 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         const bool syncMode = (syncSw != nullptr) && (syncSw->getState() == ISS_ON);
         if (!initialSyncCompleted && !syncMode)
         {
-          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          Eq2kNP.s = IPS_ALERT;
+          lastEq2kState = IPS_ALERT;
           IDSetNumber(&Eq2kNP, "Initial sync required before movement. Set ON_COORD_SET to SYNC and send coordinates once.");
           return false;
         }
@@ -789,7 +786,8 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         // Keep this check for clients that support TRACK mode on ON_COORD_SET.
         if (!initialSyncCompleted && (trackSw != nullptr) && (trackSw->getState() == ISS_ON))
         {
-          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          Eq2kNP.s = IPS_ALERT;
+          lastEq2kState = IPS_ALERT;
           IDSetNumber(&Eq2kNP, "Initial sync required before movement. ON_COORD_SET=TRACK is disabled until first sync.");
           return false;
         }
@@ -800,25 +798,28 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
           if (syncOnSetMode) {
             rc = Sync(ra,dec);
             if (rc)
-              Eq2kNP.s = lastEq2kState = IPS_OK;
+              Eq2kNP.s = IPS_OK;
             else
-              Eq2kNP.s = lastEq2kState = IPS_ALERT;
+              Eq2kNP.s = IPS_ALERT;
+            lastEq2kState = Eq2kNP.s;
             IDSetNumber(&Eq2kNP, NULL);
             return rc;
           }
         }
         if (!initialSyncCompleted && slewSw != nullptr && slewSw->getState() == ISS_ON)
         {
-          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          Eq2kNP.s = IPS_ALERT;
+          lastEq2kState = IPS_ALERT;
           IDSetNumber(&Eq2kNP, "Initial sync required before slew. Use ON_COORD_SET=SYNC for first alignment.");
           return false;
         }
         // Issue GOTO
         rc=Goto(ra,dec);
         if (rc)
-        Eq2kNP.s = lastEq2kState = (TrackState == SCOPE_SLEWING) ? IPS_BUSY : IPS_OK;
+          Eq2kNP.s = (TrackState == SCOPE_SLEWING) ? IPS_BUSY : IPS_OK;
         else
-        Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          Eq2kNP.s = IPS_ALERT;
+        lastEq2kState = Eq2kNP.s;
         IDSetNumber(&Eq2kNP, NULL);
       }
       return rc;
@@ -853,18 +854,17 @@ bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *state
     }
 
     //  This one is for us
-    if(!strcmp(name,domeCoordSP.name)) {
+    if(!strcmp(domeCoordSP.name, name)) {
       //  client is telling us what to do with co-ordinate requests
-      domeCoordSP.s=IPS_OK;
-      IUUpdateSwitch(&domeCoordSP,states,names,n);
-      //  Update client display
+      IUUpdateSwitch(&domeCoordSP, states, names, n);
+      domeCoordSP.s = IPS_OK;
       IDSetSwitch(&domeCoordSP, NULL);
       return true;
     }
     // Dome position in sync with telescope
-    if (!strcmp(name, domesyncSP.name)) {
-      domesyncSP.s=IPS_OK;
+    if (!strcmp(domesyncSP.name, name)) {
       IUUpdateSwitch(&domesyncSP, states, names, n);
+      domesyncSP.s = IPS_OK;
       IDSetSwitch(&domesyncSP, NULL);
       return true;
     }

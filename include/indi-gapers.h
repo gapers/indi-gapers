@@ -41,7 +41,6 @@ protected:
   INumber AaN[2];
 
   // Dome properties
-
   ISwitchVectorProperty domesyncSP;
   ISwitch domesyncS[2];
 
