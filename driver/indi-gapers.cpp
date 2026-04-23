@@ -106,8 +106,6 @@ GapersScope::GapersScope()
   setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
   currentRA  = 0;
   currentDEC = 90;
-  // We add an additional debug level so we can log verbose scope status
-  DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
   
   // Set telescope capabilities
   SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0); 
@@ -794,7 +792,7 @@ void GapersScope::NewRaDec(double ra,double dec) {
   // Parse the RA/DEC into strings
   fs_sexa(RAStr, ra, 2, 3600);
   fs_sexa(DecStr, dec, 2, 3600);
-  DEBUGF(DBG_SCOPE, "Current RA: %s Current DEC: %s", RAStr, DecStr );
+  LOGF_DEBUG("Current RA: %s Current DEC: %s", RAStr, DecStr);
 
   switch(TrackState)
   {
@@ -1074,13 +1072,70 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // Received ERROR command
   if( strncasecmp( cmd, "mi", 2) == 0)
   {
-    int val;
-    sscanf( msg.substr(4).c_str(), "%d ", &val);
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres ERROR %c %d\n", syst, val);
-    // La documentazione dice che il codice di errore generato dal sistema
-    // e comunicato tramite messaggio "mi" può variare tra 400 e 582. Il codice
-    // 500 è marcato "READY" e viene inviato quando il sistema si accende.
-    // TODO: eventually process error message
+    int val = 0;
+    char detail[64] = {0};
+    int fields = sscanf(msg.substr(4).c_str(), "%d %63s ", &val, detail);
+
+    if (fields >= 2)
+      LOGF_DEBUG("comm-handler: Xpres ERROR %c %d (%s)", syst, val, detail);
+    else
+      LOGF_DEBUG("comm-handler: Xpres ERROR %c %d", syst, val);
+
+    // Dizionario dei codici mi noti (range documentato: 400-582).
+    // Fonte: documentazione protocollo Xpress + analisi debugsession.log (2002-2007).
+    struct MiCode { int code; uint level; const char *desc; };
+    static const MiCode MI_CODES[] = {
+      // Startup / ready
+      { 500, INDI::Logger::DBG_DEBUG,           "READY - subsystem online" },
+      // Warnings / recoverable
+      { 547, INDI::Logger::DBG_WARNING,        "PLC warning / soft error" },
+      { 510, INDI::Logger::DBG_WARNING,        "Limit switch warning" },
+      { 511, INDI::Logger::DBG_WARNING,        "End-of-travel warning" },
+      { 520, INDI::Logger::DBG_WARNING,        "Motor overcurrent warning" },
+      { 530, INDI::Logger::DBG_WARNING,        "Encoder fault" },
+      // Errors
+      { 400, INDI::Logger::DBG_ERROR,          "Generic PLC error" },
+      { 401, INDI::Logger::DBG_ERROR,          "Comm timeout" },
+      { 402, INDI::Logger::DBG_ERROR,          "Checksum error" },
+      { 403, INDI::Logger::DBG_ERROR,          "Unknown command" },
+      { 450, INDI::Logger::DBG_ERROR,          "Motor driver fault" },
+      { 451, INDI::Logger::DBG_ERROR,          "Overcurrent fault" },
+      { 452, INDI::Logger::DBG_ERROR,          "Overtemperature fault" },
+      { 582, INDI::Logger::DBG_ERROR,          "Emergency stop active" },
+    };
+    static const int MI_CODES_COUNT = static_cast<int>(sizeof(MI_CODES) / sizeof(MI_CODES[0]));
+
+    const char *miDesc = nullptr;
+    uint miLevel = INDI::Logger::DBG_WARNING;
+    for (int i = 0; i < MI_CODES_COUNT; ++i)
+    {
+      if (MI_CODES[i].code == val)
+      {
+        miDesc  = MI_CODES[i].desc;
+        miLevel = MI_CODES[i].level;
+        break;
+      }
+    }
+    if (miDesc)
+      DEBUGF(miLevel, "comm-handler: subsystem %c mi %d: %s\n", syst, val, miDesc);
+    else
+      DEBUGF(INDI::Logger::DBG_WARNING, "comm-handler: subsystem %c mi %d (unknown code)\n", syst, val);
+  }
+  else
+  // Received STATUS/INFO string command
+  if( strncasecmp( cmd, "vf", 2) == 0)
+  {
+    int var = 0;
+    int whr = 0;
+    char text[128] = {0};
+
+    // Typical payload: "002 001 \"A.R. pronta\" ..."
+    if (sscanf(msg.substr(4).c_str(), "%d %d \"%127[^\"]\"", &var, &whr, text) == 3)
+      LOGF_DEBUG("comm-handler: Xpres STATUS %c %d %d \"%s\"", syst, var, whr, text);
+    else
+      LOGF_DEBUG("comm-handler: Xpres STATUS %c raw: %s", syst, msg.c_str());
+
+    return;
   }
   else
   // Received VAR update command
@@ -1088,7 +1143,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   {
     int val, var, whr;
     sscanf( msg.substr(4).c_str(), "%d %d %d ", &val, &var, &whr);
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres EVENT %c %d %d %d\n", syst, var, val, whr);
+    LOGF_DEBUG("comm-handler: Xpres EVENT %c %d %d %d", syst, var, val, whr);
     // m_signal_event.emit(syst, var, val, whr);
     // TODO: process var update command
     switch (syst) {
@@ -1140,13 +1195,13 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // Received ECHO of sent command
   if( strncasecmp( cmd, "tx", 2) == 0)
   {
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
+    LOGF_DEBUG("comm-handler: Xpres echo received: %s", msg.c_str());
     cmdEchoTimeout = 0;
     return;
   }
   else // Received ECHO or unhandled command
   {
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres unhandled command: %s\n", msg.c_str());
+    LOGF_DEBUG("comm-handler: Xpres unhandled command: %s", msg.c_str());
     return;
   }
 

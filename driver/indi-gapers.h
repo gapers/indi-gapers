@@ -84,7 +84,6 @@ private:
   double targetDEC;
   bool raIsMoving;
   bool decIsMoving;
-  unsigned int DBG_SCOPE;
   IPState lastEq2kState;
   double domeCurrentAZ;
   double domeTargetAZ;
