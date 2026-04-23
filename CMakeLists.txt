@@ -10,6 +10,9 @@ endif()
 
 project (indi_gapers VERSION ${PROJECT_VERSION_STRING} LANGUAGES CXX C)
 
+include(CTest)
+enable_testing()
+
 include(GNUInstallDirs)
 
 # add our cmake_modules folder
@@ -80,3 +83,12 @@ install(
     ${CMAKE_CURRENT_BINARY_DIR}/indi_gapers.xml
     DESTINATION ${INDI_DATA_DIR}
 )
+
+if(BUILD_TESTING)
+    # Pure Python unit tests for movement calculations (no hardware/INDI server required)
+    add_test(
+        NAME indi_gapers_motion_calculations
+        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/test_motion_and_plc_commands.py
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+endif()

@@ -142,6 +142,28 @@ La suite verifica almeno:
 - connessione in modalità simulation (`IPS Ok`)
 - gestione connessione in modalità reale su seriale virtuale (`IPS Ok` oppure `IPS Alert` gestito)
 
+### Suite movimento telescopio + comandi PLC
+
+È disponibile anche una suite di unit test che verifica:
+
+- correttezza del calcolo dei passi asse RA/DEC per movimenti brevi
+- correttezza della procedura a giri per movimenti lunghi (quote iniziale/finale + giri)
+- correttezza del wrapping angolare (range -180/+180 gradi)
+- validazione della distanza angolare in entrambe le direzioni (nord/sud per declinazione)
+
+Esecuzione:
+
+```bash
+python3 scripts/test_motion_and_plc_commands.py
+```
+
+Prerequisiti runtime:
+
+- `python3`
+
+La suite è una suite di unit test pura (nessuna dipendenza da INDI server o hardware) che valida
+le formule matematiche di movimento del driver C++ rispetto a costanti di telescopio/motori.
+
 ### Avviare il server INDI con il driver (hardware reale)
 
 ```bash
