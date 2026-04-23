@@ -90,6 +90,7 @@ GapersScope::GapersScope()
   LOGF_INFO("Driver version: %s", CDRIVER_VERSION_STR);
   currentRA  = 0;
   currentDEC = 90;
+  initialSyncCompleted = false;
   
   // Set telescope capabilities
   SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0); 
@@ -142,6 +143,18 @@ bool GapersScope::initProperties()
 
   addSimulationControl();
   addDebugControl();
+
+  // Require an initial sync before motion: start ON_COORD_SET in SYNC mode.
+  auto slewSW  = CoordSP.findWidgetByName("SLEW");
+  auto trackSW = CoordSP.findWidgetByName("TRACK");
+  auto syncSW  = CoordSP.findWidgetByName("SYNC");
+  if (slewSW && trackSW && syncSW)
+  {
+    slewSW->setState(ISS_OFF);
+    trackSW->setState(ISS_OFF);
+    syncSW->setState(ISS_ON);
+  }
+
   return true;
 }
 
@@ -177,6 +190,7 @@ bool GapersScope::Handshake() {
   cmdEchoTimeout = 0;
 
   // initialize telescope and dome status
+  initialSyncCompleted = false;
   TrackState = SCOPE_TRACKING;
   DomeTrackState = DOME_IDLE;
 
@@ -451,9 +465,9 @@ bool GapersScope::ReadScopeStatus()
 
   // If telescope is not moving and aim azimuth is more distant than threshold from
   // dome azimuth, and dome control is in auto, then move dome accordingly
-  ISwitch *sw;
-  sw=IUFindSwitch(&domesyncSP,"AUTO");
-  if((sw != NULL)&&( sw->s==ISS_ON )) {
+  auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+  const bool domeAutoOn = (domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON);
+  if (domeAutoOn) {
     if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThresholdN[0].value)) {
       char azStr[64];
       fs_sexa(azStr, psn.az, 2, 3600);
@@ -523,6 +537,7 @@ bool GapersScope::Sync(double ra, double dec)
 
   currentRA = ra;
   currentDEC = dec;
+  initialSyncCompleted = true;
   NewRaDec(ra,dec);
   // Mark state as slewing
   TrackState = SCOPE_TRACKING;
@@ -541,14 +556,14 @@ bool GapersScope::Sync(double ra, double dec)
   psn.az = normalizeAz(psn.az + 180.);
   NewAltAz(psn.alt, psn.az);
 
-  ISwitch *sw;
-  sw=IUFindSwitch(&domesyncSP,"AUTO");
-  if((sw != NULL)&&( sw->s==ISS_ON )) {
-    bool rc=DomeSync(psn.az);
+  auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+  const bool domeAutoOn = (domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON);
+  if (domeAutoOn) {
+    bool rc = DomeSync(psn.az);
     if (rc)
-    domeAzNP.s = IPS_OK;
+      domeAzNP.s = IPS_OK;
     else
-    domeAzNP.s = IPS_ALERT;
+      domeAzNP.s = IPS_ALERT;
     IDSetNumber(&domeAzNP, NULL);
   }
   return true;
@@ -704,14 +719,14 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         }
       }
       if ((az >= 0) && (az <= 360)) {
-        ISwitch *sw;
-        sw=IUFindSwitch(&domeCoordSP,"SYNC");
-        if((sw != NULL)&&( sw->s==ISS_ON )) {
-          rc=DomeSync(az);
+        auto domeSyncSw = IUFindSwitch(&domeCoordSP, "SYNC");
+        const bool domeSyncMode = (domeSyncSw != nullptr) && (domeSyncSw->s == ISS_ON);
+        if (domeSyncMode) {
+          rc = DomeSync(az);
           if (rc)
-          domeAzNP.s = IPS_OK;
+            domeAzNP.s = IPS_OK;
           else
-          domeAzNP.s = IPS_ALERT;
+            domeAzNP.s = IPS_ALERT;
           IDSetNumber(&domeAzNP, NULL);
           return rc;
         }
@@ -759,17 +774,44 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
           }
         }
         // Check if it can sync
+        auto syncSw  = CoordSP.findWidgetByName("SYNC");
+        auto slewSw  = CoordSP.findWidgetByName("SLEW");
+        auto trackSw = CoordSP.findWidgetByName("TRACK");
+
+        const bool syncMode = (syncSw != nullptr) && (syncSw->getState() == ISS_ON);
+        if (!initialSyncCompleted && !syncMode)
+        {
+          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          IDSetNumber(&Eq2kNP, "Initial sync required before movement. Set ON_COORD_SET to SYNC and send coordinates once.");
+          return false;
+        }
+
+        // Keep this check for clients that support TRACK mode on ON_COORD_SET.
+        if (!initialSyncCompleted && (trackSw != nullptr) && (trackSw->getState() == ISS_ON))
+        {
+          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          IDSetNumber(&Eq2kNP, "Initial sync required before movement. ON_COORD_SET=TRACK is disabled until first sync.");
+          return false;
+        }
+
         if (CanSync()) {
-          auto sw = CoordSP.findWidgetByName("SYNC");
-          if((sw != NULL)&&( sw->s==ISS_ON )) {
-            rc=Sync(ra,dec);
+          auto syncOnSetSw = CoordSP.findWidgetByName("SYNC");
+          const bool syncOnSetMode = (syncOnSetSw != nullptr) && (syncOnSetSw->getState() == ISS_ON);
+          if (syncOnSetMode) {
+            rc = Sync(ra,dec);
             if (rc)
-            Eq2kNP.s = lastEq2kState = IPS_OK;
+              Eq2kNP.s = lastEq2kState = IPS_OK;
             else
-            Eq2kNP.s = lastEq2kState = IPS_ALERT;
+              Eq2kNP.s = lastEq2kState = IPS_ALERT;
             IDSetNumber(&Eq2kNP, NULL);
             return rc;
           }
+        }
+        if (!initialSyncCompleted && slewSw != nullptr && slewSw->getState() == ISS_ON)
+        {
+          Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          IDSetNumber(&Eq2kNP, "Initial sync required before slew. Use ON_COORD_SET=SYNC for first alignment.");
+          return false;
         }
         // Issue GOTO
         rc=Goto(ra,dec);
@@ -787,6 +829,29 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
 
 bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n) {
   if(strcmp(dev,getDefaultName())==0) {
+    if (!strcmp(name, CoordSP.getName())) {
+      bool wantsSlewOrTrack = false;
+      for (int i = 0; i < n; i++) {
+        if (states[i] != ISS_ON)
+          continue;
+        if (!strcmp(names[i], "SLEW") || !strcmp(names[i], "TRACK")) {
+          wantsSlewOrTrack = true;
+          break;
+        }
+      }
+
+      if (!initialSyncCompleted && wantsSlewOrTrack) {
+        CoordSP.setState(IPS_ALERT);
+        CoordSP.apply("Initial sync required: ON_COORD_SET SLEW/TRACK are disabled until first sync.");
+        return true;
+      }
+
+      CoordSP.update(states, names, n);
+      CoordSP.setState(IPS_OK);
+      CoordSP.apply();
+      return true;
+    }
+
     //  This one is for us
     if(!strcmp(name,domeCoordSP.name)) {
       //  client is telling us what to do with co-ordinate requests

@@ -80,6 +80,7 @@ private:
   double targetDEC;
   bool raIsMoving;
   bool decIsMoving;
+  bool initialSyncCompleted;
   IPState lastEq2kState;
   double domeCurrentAZ;
   double domeTargetAZ;
