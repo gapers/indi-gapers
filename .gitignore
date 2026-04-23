@@ -8,3 +8,4 @@ indi_gapers.xml
 install_manifest.txt
 CMakeFiles
 indi-gapers.code-workspace
+build/
