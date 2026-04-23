@@ -44,7 +44,7 @@ configure_file(
 include(CMakeCommon)
 
 # Target executable
-add_executable(indi_gapers src/indi-gapers.cpp)
+add_executable(indi_gapers src/indi-gapers.cpp src/gapers_math.cpp)
 
 # Prefer imported targets when available, while keeping compatibility with
 # legacy Find modules that export plain variables.
@@ -85,7 +85,28 @@ install(
 )
 
 if(BUILD_TESTING)
-    # Pure Python unit tests for movement calculations (no hardware/INDI server required)
+    # ------------------------------------------------------------------
+    # C++ unit tests via Google Test (tests real driver math code)
+    # ------------------------------------------------------------------
+    find_package(GTest QUIET)
+    if(GTest_FOUND)
+        add_executable(gapers_math_tests
+            tests/test_gapers_math.cpp
+            src/gapers_math.cpp
+        )
+        target_include_directories(gapers_math_tests PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+        )
+        target_compile_features(gapers_math_tests PRIVATE cxx_std_17)
+        target_link_libraries(gapers_math_tests PRIVATE GTest::GTest GTest::Main)
+        add_test(NAME gapers_math_tests COMMAND gapers_math_tests)
+    else()
+        message(STATUS "GTest not found — skipping C++ unit tests (install libgtest-dev)")
+    endif()
+
+    # ------------------------------------------------------------------
+    # Python smoke tests (kept for quick sanity checks, no extra deps)
+    # ------------------------------------------------------------------
     add_test(
         NAME indi_gapers_motion_calculations
         COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/test_motion_and_plc_commands.py

@@ -153,6 +153,10 @@ La suite verifica almeno:
 - **correttezza del calcolo tempo movimento cupola** (azimuth, speed, wrapping 0-360°)
 - **validazione edge case di movimento nullo della cupola**
 - **verifica del percorso più breve attraverso confine 0°**
+- **movimento sincrono RA/DEC**: validazione movimento diagonale
+- **rapporto velocità assi**: RA (220088.2 step/°) vs DEC (192000.0 step/°)
+- **selezione comando**: distingue movimenti sincronizzati vs singolo asse
+- **tempo massimo movimento**: l'asse più lento determina tempo totale
 
 Esecuzione:
 

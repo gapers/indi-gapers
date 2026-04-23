@@ -9,6 +9,7 @@ Copyright (C) 2014 Maurizio Serrazanetti
 #include "indicom.h"
 #include "indilogger.h"
 #include "indi-gapers.h"
+#include "gapers_math.h"
 #include "libindi/connectionplugins/connectionserial.h"
 
 #include <libnova/libnova.h>
@@ -461,82 +462,40 @@ bool GapersScope::ReadScopeStatus()
 }
 
 double GapersScope::_calcMoveTime(double steps, double vp, double rs) const {
-  // Calcola il tempo di percorrenza in secondi dati i passi (valore assoluto),
-  // la velocità di regime vp e i passi totali di rampa rs.
-  // Le rampe di accel/decel sono lineari; velocità media = (vp-200)/2.
-  const double tr = rs / ((vp - 200.0) / 2.0);
-  if (steps > rs)
-    return ((steps - rs) / vp) + tr;
-  return (steps * tr) / rs;
+  return GapersMath::calcMoveTime(steps, vp, rs);
 }
 
 double GapersScope::normalizeAz(double az) {
-  while (az >= 360.) az -= 360.;
-  while (az < 0.)    az += 360.;
-  return az;
+  return GapersMath::normalizeAz(az);
 }
 
 bool GapersScope::_setMoveDataRA( double distance ) {
-  // Durante lo spostamento in ascensione retta occorre compensare il moto
-  // siderale che si manifesta nel tempo necessario al movimento dell'asse.
-
-  // Costanti usate nel calcolo
-  const double vs = 919.456; // Velocità moto siderale in passi per secondo
-  const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
-  const double spd = 220088.2; // Passi motore per grado di spostamento asse
-  const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
-  int direction = ( distance > 0 ? 1 : -1);
-  double steps  = fabs( distance ) * spd;
-  double tm     = _calcMoveTime(steps, vp, rs);
-  // La correzione è pari al tempo di spostamento per la velocità siderale;
-  // l'approssimazione è trascurabile per movimenti tipici.
-  double correction = tm * vs;
-  // Impostazione variabili necessarie per il movimento (movimento semplice o per giri)
-  raMovement.angle = distance;
-  // Imposta il numero di passi corretto arrotondato all'intero più vicino
-  raMovement.steps = static_cast<long>((steps+0.5) * direction + correction );
-  raMovement.startQuote = 0;
-  raMovement.endQuote = 0;
-  raMovement.rotations = 0;
-  raMovement.time = tm;
-  if (std::abs(raMovement.steps) > 80*12800) {
-    return _rotationsCalc(raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
-  }
-  return true;
+  GapersMath::AxisMovementData d;
+  bool ok = GapersMath::setMoveDataRA(distance, d);
+  raMovement.angle      = d.angle;
+  raMovement.steps      = d.steps;
+  raMovement.startQuote = d.startQuote;
+  raMovement.endQuote   = d.endQuote;
+  raMovement.rotations  = d.rotations;
+  raMovement.time       = d.time;
+  return ok;
 }
 
 bool GapersScope::_setMoveDataDEC( double distance ) {
-  // Costanti usate nel calcolo
-  const double vp  = 220000.0;  // Velocità movimento asse in passi per secondo
-  const double spd = 192000.0;  // Passi motore per grado di spostamento asse
-  const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
-  int direction = ( distance > 0 ? 1 : -1);
-  double steps  = fabs( distance ) * spd;
-  double tm     = _calcMoveTime(steps, vp, rs);
-  decMovement.angle = distance;
-  decMovement.steps = static_cast<long>((steps+0.5) * direction );
-  decMovement.startQuote = 0;
-  decMovement.endQuote = 0;
-  decMovement.rotations = 0;
-  decMovement.time = tm;
-  if (std::abs(decMovement.steps) > 80*12800) {
-    return _rotationsCalc(decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
-  }
-  return true;
+  GapersMath::AxisMovementData d;
+  bool ok = GapersMath::setMoveDataDEC(distance, d);
+  decMovement.angle      = d.angle;
+  decMovement.steps      = d.steps;
+  decMovement.startQuote = d.startQuote;
+  decMovement.endQuote   = d.endQuote;
+  decMovement.rotations  = d.rotations;
+  decMovement.time       = d.time;
+  return ok;
 }
 
 
 double GapersScope::rangeDistance( double angle) {
-  /*
-  * Riporta il range di un angolo all'interno di +/-180 gradi
-  * da utilizzare nel calcolo delle differenze angolari per
-  * gli spostamenti nelle due direzioni in modo da utilizzare
-  * sempre il percorso angolare più breve.
-  */
-  double r = angle;
-  while (r < -180.0) r += 360.0;
-  while (r > 180.0) r -= 360.0;
-  return r;
+  return GapersMath::rangeDistance(angle);
 }
 /**************************************************************************************
 ** Client is asking us to sync to a new position
@@ -590,84 +549,10 @@ bool GapersScope::Sync(double ra, double dec)
 }
 
 bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri) {
-  // La quota rappresentabile dagli encoder dello stepper dei motori è limitato al
-  // range -8388608 <--> +8388607. Questo limita il movimento basato sulla
-  // differenza di quota a 2^23 passi, pari a circa 38 gradi.
-  // Qualora sia necessario effettuare uno spostamento maggiore, occorre
-  // utilizzare una procedura alternativa: si calcola il movimento in giri
-  // completi del motore, che viene eseguito superando l'overflow della quota
-  // dell'encoder, che ricomincia a contare ripartendo dal valore più basso
-  // rappresentabile. Al termine del movimento "per giri", ci si posiziona
-  // alla quota necessaria per ottenere lo spostamento preciso richiesto.
-  // Siccome il movimento "per giri" è meno preciso di quello per passi regolato
-  // dall'encoder, è necessario fermarlo prima di aver compiuto il massimo
-  // movimento possibile, altrimenti si rischia di trovarsi oltre la quota di
-  // encoder desiderata, costringendo il motore ad invertire il senso di marcia.
-  // I due movimenti sono distinti e questo non sarebbe eccessivamente
-  // probklematico ma nel caso del movimento in ascensione retta ciò
-  // potrebbe rendere meno affidabile la correzione da applicare per compensare
-  // il moto siderale apparente. Viene pertanto usato nel calcolo un arbitrario
-  // "valore di sicurezza" pari ad 80 giri completi del motore, ovvero circa
-  // 1.024.000 passi (4 gradi circa di movimento). Questo valore viene sottratto
-  // al numero di passi richiesti per lo spostamento in modo da fermarsi per
-  // tempo prima di passare al movimento per passi.
-  // Nella procedura di movimento per giri gestita dal PLC vanno comunicati la
-  // quota iniziale da impostare sull'encoder, la quota finale da raggiungere
-  // ed il numero di giri da compiere. La quota finale viene calcolata
-  // considerando il numero totale di passi da compiere e ricominciando a
-  // contare dal limite inferiore qualora si oltrepassi il limite superiore
-  // rappresentabile dall'encoder (gestione dell'overflow). Nel caso in cui il
-  // calcolo porti ad una quota finale di valore pari a 0, quota iniziale e
-  // finale vengono aumentati di un valore arbitrario (100). Il valore 0 non
-  // è infatti ammesso nei parametri da passare al PLC nella richiesta per
-  // avviare questa procedura.
-
-  const long qrange = 8388608+8388608; // range of stepper quota values (from -8388608 to +8388607)
-  const long qsafe = 80*12800; // safe quota equivalent of 80 revolutions
-
-  m_sq=0;
-  m_eq=0;
-
-  if (std::abs(steps) < qsafe) {
-    // Sanity check: questa procedura dovrebbe essere utilizzata soltanto per
-    // spostamenti superiori a 38 gradi, 2^23 passi. Utilizzarla per movimenti
-    // più ridotti non è comunque un problema fino a che si sta sopra alla
-    // quota di sicurezza utilizzata per il calcolo dei giri, 1 milione di
-    // passi ovvero circa 4 gradi.
-    //    error("lo spostamento lungo deve essere usato solo per movimenti > 1<<23 passi.");
+  bool ok = GapersMath::rotationsCalc(steps, m_sq, m_eq, m_giri);
+  if (!ok)
     DEBUG(INDI::Logger::DBG_SESSION, "Requested a movement too small for spin based driving. This procedure should be used only for > 1^23 steps.");
-    return false;
-  }
-
-  if (steps > 0) {
-    // steps are positive, clockwise movement)
-    m_sq = -8388608;
-    m_eq = (steps % qrange)+m_sq;
-    m_giri = ((steps - qsafe) / 12800) + 1;
-    if ( m_eq < (m_sq + qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-      m_sq += qsafe;
-      m_eq += qsafe;
-    }
-    // check for a nasty race condition in plc program
-    if (m_eq == 0) {
-      m_sq += 100;
-      m_eq = 100;
-    }
-  } else { // steps are negative (counterclockwise movement)
-    m_sq = 8388607;
-    m_eq = (steps % qrange)+m_sq;
-    m_giri = ((steps + qsafe) / 12800) -1;
-    if ( m_eq > (m_sq - qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-      m_sq -= qsafe;
-      m_eq -= qsafe;
-    }
-    // check for a nasty race condition in plc program
-    if (m_eq == 0) {
-      m_sq -= 100;
-      m_eq = -100;
-    }
-  }
-return true;
+  return ok;
 }
 
 void GapersScope::ISGetProperties (const char *dev) {
