@@ -104,6 +104,7 @@ void ISSnoopDevice (XMLEle *root)
 GapersScope::GapersScope()
 {
   setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
+  LOGF_INFO("Driver version: %s", CDRIVER_VERSION_STR);
   currentRA  = 0;
   currentDEC = 90;
   

@@ -2,7 +2,18 @@
 
 Driver INDI nativo per il Telescopio e la Cupola del GAPers (Gruppo Astrofili Persicetani).
 
-Versione corrente: **3.0**
+Versione corrente: letta dal file `VERSION` (single source of truth).
+
+## Struttura progetto
+
+Layout consigliato adottato:
+
+- `src/`: sorgenti C++ del driver
+- `include/`: header pubblici/interni del driver
+- `data/`: template dati installabili (es. XML INDI)
+- `cmake/`: template e helper CMake (es. `config.h.in`)
+- `scripts/`: script di test e utility
+- `VERSION`: versione progetto in formato `MAJOR.MINOR.PATCH`
 
 ---
 
@@ -52,9 +63,14 @@ cd indi-gapers
 ### 2. Compilare
 
 ```bash
-mkdir build
-cd build
-cmake ..
+cmake -S . -B build
+cmake --build build -j
+```
+
+oppure (compatibile con il Makefile in-source già presente):
+
+```bash
+cmake -S . -B .
 make
 ```
 
