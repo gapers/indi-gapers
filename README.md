@@ -150,6 +150,9 @@ La suite verifica almeno:
 - correttezza della procedura a giri per movimenti lunghi (quote iniziale/finale + giri)
 - correttezza del wrapping angolare (range -180/+180 gradi)
 - validazione della distanza angolare in entrambe le direzioni (nord/sud per declinazione)
+- **correttezza del calcolo tempo movimento cupola** (azimuth, speed, wrapping 0-360°)
+- **validazione edge case di movimento nullo della cupola**
+- **verifica del percorso più breve attraverso confine 0°**
 
 Esecuzione:
 

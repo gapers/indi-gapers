@@ -22,6 +22,13 @@ class MoveData:
     rotations: int
 
 
+@dataclass
+class DomeMoveData:
+    """Dome movement data: azimuth distance and calculated movement time."""
+    az_distance: float
+    move_time_ms: int
+
+
 class MotionMath:
     @staticmethod
     def range_distance(angle):
@@ -102,6 +109,54 @@ class MotionMath:
             sq, eq, giri = MotionMath.rotations_calc(final_steps)
             return MoveData(final_steps, sq, eq, giri)
         return MoveData(final_steps, 0, 0, 0)
+
+    @staticmethod
+    def range_azimuth(az):
+        """Normalize azimuth to 0-360 degree range (dome rotation).
+        
+        Unlike range_distance (which wraps to -180/+180 for shortest path),
+        azimuth is normalized to 0-360 to represent absolute dome position.
+        """
+        r = az
+        while r < 0.0:
+            r += 360.0
+        while r >= 360.0:
+            r -= 360.0
+        return r
+
+    @staticmethod
+    def set_dome_move_data(az_current, az_target, dome_speed_sec):
+        """Calculate dome movement time based on azimuth distance and dome speed.
+        
+        Args:
+            az_current: Current dome azimuth (0-360 degrees)
+            az_target: Target dome azimuth (0-360 degrees)
+            dome_speed_sec: Full rotation period in seconds (default 94.33)
+        
+        Returns:
+            DomeMoveData with azimuth distance and movement time in milliseconds
+        """
+        # Normalize both azimuths to 0-360 range
+        az_current = MotionMath.range_azimuth(az_current)
+        az_target = MotionMath.range_azimuth(az_target)
+        
+        # Calculate shortest distance (similar to range_distance but for 0-360)
+        az_dist = az_target - az_current
+        if az_dist > 180.0:
+            az_dist -= 360.0
+        elif az_dist < -180.0:
+            az_dist += 360.0
+        
+        # Null movement
+        if az_dist == 0.0:
+            return DomeMoveData(0.0, 0)
+        
+        # Movement time: (dome_speed_sec / 360) * abs(az_dist) * 1000 (milliseconds)
+        # Formula from C++: long movTime = static_cast<long>(((domeSpeedN[0].value / 360.0) * azDist * 1000.0) + 0.5)
+        move_time_raw = ((dome_speed_sec / 360.0) * abs(az_dist) * 1000.0) + 0.5
+        move_time_ms = int(move_time_raw)
+        
+        return DomeMoveData(az_dist, move_time_ms)
 
 
 class TestMotionAndPLCCommands(unittest.TestCase):
@@ -199,6 +254,110 @@ class TestMotionAndPLCCommands(unittest.TestCase):
         dec_south = MotionMath.set_move_data_dec(-3.0)
         self.assertEqual(dec_south.rotations, 0, "Small southward DEC move")
         self.assertLess(dec_south.steps, 0, "Southward should have negative steps")
+
+    def test_dome_azimuth_wrapping(self):
+        """Verify dome azimuth normalization to 0-360 range.
+        
+        Unlike telescope RA/DEC which use -180/+180 for shortest path,
+        dome azimuth is absolute position 0-360 degrees.
+        """
+        # Test forward normalization
+        self.assertAlmostEqual(MotionMath.range_azimuth(0.0), 0.0)
+        self.assertAlmostEqual(MotionMath.range_azimuth(180.0), 180.0)
+        self.assertAlmostEqual(MotionMath.range_azimuth(359.9), 359.9)
+        
+        # Test wrapping at boundaries
+        self.assertAlmostEqual(MotionMath.range_azimuth(360.0), 0.0)
+        self.assertAlmostEqual(MotionMath.range_azimuth(361.0), 1.0)
+        self.assertAlmostEqual(MotionMath.range_azimuth(-1.0), 359.0)
+        self.assertAlmostEqual(MotionMath.range_azimuth(-180.0), 180.0)
+        
+        # Test multi-turn wrapping
+        self.assertAlmostEqual(MotionMath.range_azimuth(720.0), 0.0)
+        self.assertAlmostEqual(MotionMath.range_azimuth(1080.0), 0.0)
+
+    def test_dome_null_movement(self):
+        """Verify that null dome movements (target = current) produce zero time.
+        
+        This validates the edge case where dome is already at target position.
+        """
+        dome_speed = 94.33  # Default dome speed (seconds per full rotation)
+        
+        # Same azimuth
+        move = MotionMath.set_dome_move_data(45.0, 45.0, dome_speed)
+        self.assertEqual(move.az_distance, 0.0, "Same azimuth should have zero distance")
+        self.assertEqual(move.move_time_ms, 0, "Null movement should take zero time")
+        
+        # Same azimuth with wrapping
+        move = MotionMath.set_dome_move_data(0.0, 360.0, dome_speed)
+        self.assertEqual(move.az_distance, 0.0, "Wrapped azimuth should be treated as same position")
+        self.assertEqual(move.move_time_ms, 0, "Null movement (wrapped) should take zero time")
+
+    def test_dome_movement_time_calculation(self):
+        """Verify dome movement time calculation for various distances.
+        
+        Movement time = (dome_speed_sec / 360) * abs(az_dist) * 1000 [ms]
+        """
+        dome_speed = 94.33  # Default: 94.33 seconds per full rotation
+        
+        # 90-degree movement (quarter turn)
+        # Expected: (94.33 / 360) * 90 * 1000 = ~23582 ms
+        move = MotionMath.set_dome_move_data(0.0, 90.0, dome_speed)
+        self.assertAlmostEqual(move.az_distance, 90.0, places=1)
+        expected_time = int(((dome_speed / 360.0) * 90.0 * 1000.0) + 0.5)
+        self.assertEqual(move.move_time_ms, expected_time)
+        self.assertGreater(move.move_time_ms, 23000, "Quarter turn should take ~23+ seconds")
+        
+        # 180-degree movement (half turn)
+        # Expected: (94.33 / 360) * 180 * 1000 = ~47164 ms
+        move = MotionMath.set_dome_move_data(0.0, 180.0, dome_speed)
+        self.assertAlmostEqual(move.az_distance, 180.0, places=1)
+        expected_time = int(((dome_speed / 360.0) * 180.0 * 1000.0) + 0.5)
+        self.assertEqual(move.move_time_ms, expected_time)
+        self.assertGreater(move.move_time_ms, 47000, "Half turn should take ~47+ seconds")
+        
+        # Small 5-degree movement
+        # Expected: (94.33 / 360) * 5 * 1000 = ~1309 ms
+        move = MotionMath.set_dome_move_data(45.0, 50.0, dome_speed)
+        self.assertAlmostEqual(move.az_distance, 5.0, places=1)
+        expected_time = int(((dome_speed / 360.0) * 5.0 * 1000.0) + 0.5)
+        self.assertEqual(move.move_time_ms, expected_time)
+        self.assertLess(move.move_time_ms, 1500, "5-degree move should take ~1.3 seconds")
+
+    def test_dome_shortest_path_wrapping(self):
+        """Verify dome takes shortest path across 0-degree boundary.
+        
+        When moving near azimuth boundaries, the dome should calculate
+        the shortest angular distance, which may involve crossing 0 degrees.
+        """
+        dome_speed = 94.33
+        
+        # From 350° to 10° should be 20° clockwise (through 0°), not 320° counterclockwise
+        move = MotionMath.set_dome_move_data(350.0, 10.0, dome_speed)
+        self.assertAlmostEqual(abs(move.az_distance), 20.0, places=1,
+                             msg="Should take shortest path through 0°")
+        
+        # From 10° to 350° should be -20° (or 340° the long way)
+        move = MotionMath.set_dome_move_data(10.0, 350.0, dome_speed)
+        self.assertAlmostEqual(abs(move.az_distance), 20.0, places=1,
+                             msg="Should take shortest path back through 0°")
+
+    def test_dome_movement_consistency_with_c_plus_plus(self):
+        """Validate dome movement calculation matches C++ driver formula.
+        
+        C++ code: long movTime = static_cast<long>(((domeSpeedN[0].value / 360.0) * azDist * 1000.0) + 0.5)
+        """
+        dome_speed = 94.33  # Default from C++
+        
+        # Test a specific case: 45.5° movement
+        move = MotionMath.set_dome_move_data(100.0, 145.5, dome_speed)
+        self.assertAlmostEqual(abs(move.az_distance), 45.5, places=1)
+        
+        # Calculate expected value manually
+        az_dist = 45.5
+        expected_ms = int(((dome_speed / 360.0) * az_dist * 1000.0) + 0.5)
+        self.assertEqual(move.move_time_ms, expected_ms,
+                        "Movement time should match C++ formula exactly")
 
 
 if __name__ == "__main__":
