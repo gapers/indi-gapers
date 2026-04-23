@@ -1,8 +1,8 @@
 /*
 GAPers Telescope driver
 
-Copyright (C) 2024 Massimiliano Masserelli
-Copyright (C) 2024 Gruppo Astrofili Persicetani
+Copyright (C) 2026 Massimiliano Masserelli
+Copyright (C) 2026 Gruppo Astrofili Persicetani
 Copyright (C) 2014 Maurizio Serrazanetti
 */
 
@@ -186,7 +186,7 @@ bool GapersScope::Handshake() {
   DomeTrackState = DOME_IDLE;
 
   // Let's set a timer that checks telescopes status every POLLMS milliseconds.
-  SetTimer(POLLMS);
+  SetTimer(getCurrentPollingPeriod());
 
   return true;
 }
@@ -201,7 +201,7 @@ void GapersScope::TimerHit() {
   ReadScopeStatus();
 
   // Let's set a timer that checks telescopes status every POLLMS milliseconds.
-  SetTimer(POLLMS);
+  SetTimer(getCurrentPollingPeriod());
 
 }
 
@@ -232,9 +232,9 @@ bool GapersScope::Goto(double ra, double dec)
 
   eqc.ra = targetRA * 15.0;
   eqc.dec = targetDEC;
-  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  eqa.lng = m_Location.longitude;
   if (eqa.lng > 180.) eqa.lng -= 360.;
-  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
   psn.az += 180.;
   while (psn.az >= 360.) psn.az -= 360.;
@@ -439,9 +439,9 @@ bool GapersScope::ReadScopeStatus()
 
   eqc.ra = currentRA * 15.0;
   eqc.dec = currentDEC;
-  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  eqa.lng = m_Location.longitude;
   if (eqa.lng > 180.) eqa.lng -= 360.;
-  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
   // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
   psn.az += 180.;
@@ -613,9 +613,9 @@ bool GapersScope::Sync(double ra, double dec)
 
   eqc.ra = currentRA * 15.0;
   eqc.dec = currentDEC;
-  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  eqa.lng = m_Location.longitude;
   if (eqa.lng > 180.) eqa.lng -= 360.;
-  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
   // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
   psn.az += 180.;
@@ -723,15 +723,15 @@ void GapersScope::ISGetProperties (const char *dev) {
 
   if(isConnected()) {
     // Add eq coord J2000 number
-    defineNumber(&Eq2kNP);
+    defineProperty(&Eq2kNP);
     // Add AltAzimuthal coord
-    defineNumber(&AaNP);
+    defineProperty(&AaNP);
     // Add dome properties
-    defineSwitch(&domesyncSP);
-    defineNumber(&domeAzNP);
-    defineSwitch(&domeCoordSP);
-    defineNumber(&domeSpeedNP);
-    defineNumber(&domeAzThresholdNP);
+    defineProperty(&domesyncSP);
+    defineProperty(&domeAzNP);
+    defineProperty(&domeCoordSP);
+    defineProperty(&domeSpeedNP);
+    defineProperty(&domeAzThresholdNP);
   }
 }
 
@@ -742,13 +742,13 @@ bool GapersScope::updateProperties()
 
   if(isConnected())
   {
-    defineNumber(&Eq2kNP);
-    defineNumber(&AaNP);
-    defineSwitch(&domesyncSP);
-    defineNumber(&domeAzNP);
-    defineSwitch(&domeCoordSP);
-    defineNumber(&domeSpeedNP);
-    defineNumber(&domeAzThresholdNP);
+    defineProperty(&Eq2kNP);
+    defineProperty(&AaNP);
+    defineProperty(&domesyncSP);
+    defineProperty(&domeAzNP);
+    defineProperty(&domeCoordSP);
+    defineProperty(&domeSpeedNP);
+    defineProperty(&domeAzThresholdNP);
 
     loadDefaultConfig();
   }
@@ -771,7 +771,6 @@ bool GapersScope::saveConfigItems(FILE *fp) {
   IUSaveConfigSwitch(fp, &domeCoordSP);
   IUSaveConfigNumber(fp, &domeSpeedNP);
   IUSaveConfigNumber(fp, &domeAzThresholdNP);
-  IUSaveConfigNumber(fp, &ScopeParametersNP);
 
   return INDI::Telescope::saveConfigItems(fp);
 }
@@ -922,8 +921,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         }
         // Check if it can sync
         if (CanSync()) {
-          ISwitch *sw;
-          sw=IUFindSwitch(&CoordSP,"SYNC");
+          auto sw = CoordSP.findWidgetByName("SYNC");
           if((sw != NULL)&&( sw->s==ISS_ON )) {
             rc=Sync(ra,dec);
             if (rc)

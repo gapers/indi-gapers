@@ -1,5 +1,6 @@
-cmake_minimum_required (VERSION 2.8)
-project (indi_gapers CXX C)
+cmake_minimum_required (VERSION 3.5)
+cmake_policy(SET CMP0048 NEW)
+project (indi_gapers VERSION 2.0 LANGUAGES CXX C)
 
 include(GNUInstallDirs)
 
