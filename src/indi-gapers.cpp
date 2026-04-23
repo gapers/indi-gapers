@@ -158,6 +158,12 @@ bool GapersScope::Handshake() {
     return false;
   }
 
+  int newFlags = fcntl(PortFD, F_GETFL, 0);
+  if (newFlags == -1)
+    LOGF_WARN("Cannot read serial flags after non-blocking setup on %s: %s", serialConnection->port(), strerror(errno));
+  else
+    LOGF_DEBUG("Serial fd %d flags after handshake: 0x%X (O_NONBLOCK=%s)", PortFD, newFlags, (newFlags & O_NONBLOCK) ? "ON" : "OFF");
+
   // TODO: Any initial communication needed with our device; we have an active
   // connection with a valid file descriptor called PortFD. This file descriptor
   // can be used with the tty_* functions in indicom.h
@@ -805,6 +811,7 @@ bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *state
 void GapersScope::commHandler() {
   unsigned char inbuf[80]; // small buffer for reception, should hold most commands
   std::string rs = ""; // local buffer for holding a complete command
+  static bool nonBlockingStateLogged = false;
 
   if (isSimulation()) // No interaction with RS232 in simulation mode
   return;
@@ -812,42 +819,57 @@ void GapersScope::commHandler() {
   if (! isConnected()) // If telescope hardware is not connected, bail out
   return;
 
+  if (!nonBlockingStateLogged) {
+    int flags = fcntl(PortFD, F_GETFL, 0);
+    if (flags == -1)
+      LOGF_WARN("comm-handler: cannot read serial flags on fd %d: %s", PortFD, strerror(errno));
+    else
+      LOGF_DEBUG("comm-handler: serial fd %d flags: 0x%X (O_NONBLOCK=%s)", PortFD, flags, (flags & O_NONBLOCK) ? "ON" : "OFF");
+    nonBlockingStateLogged = true;
+  }
+
   do {
     int rlen=0; // number of chars read by read below
     rlen = read(PortFD, inbuf, 80);
     if (rlen == -1) {
-      DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %d\n", serialConnection->port(), strerror(errno));
-      Disconnect();
-      return;
-    }
-    for (int bufp=0; bufp < rlen; ++bufp) {
-      unsigned char cbuf=inbuf[bufp];
-      switch (c_state) {
-        case STARTWAITING:
-        if (cbuf == ASCII_STX) {
-          _readbuffer.clear();
-          c_state = READINGCOMMAND;
-        }
-        break;
-        case READINGCOMMAND:
-        if (cbuf == ASCII_STX) {
-          // if a new Start char is found before End char,
-          // reset queue, since we've likely got a transmission
-          // error anyway.
-          _readbuffer.clear();
-        } else if (cbuf == ASCII_ETX) {
-          rs = _readbuffer;
-          _readbuffer.clear();
-
-          c_state = STARTWAITING;
-        } else {
-          _readbuffer.push_back(cbuf);
-        }
-        break;
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+        rlen = 0;
+      else {
+        DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %s\n", serialConnection->port(), strerror(errno));
+        Disconnect();
+        return;
       }
-      if (!rs.empty()) {
-        ParsePLCMessage(rs);
-        rs.clear();
+    }
+    if (rlen > 0) {
+      for (int bufp=0; bufp < rlen; ++bufp) {
+        unsigned char cbuf=inbuf[bufp];
+        switch (c_state) {
+          case STARTWAITING:
+          if (cbuf == ASCII_STX) {
+            _readbuffer.clear();
+            c_state = READINGCOMMAND;
+          }
+          break;
+          case READINGCOMMAND:
+          if (cbuf == ASCII_STX) {
+            // if a new Start char is found before End char,
+            // reset queue, since we've likely got a transmission
+            // error anyway.
+            _readbuffer.clear();
+          } else if (cbuf == ASCII_ETX) {
+            rs = _readbuffer;
+            _readbuffer.clear();
+
+            c_state = STARTWAITING;
+          } else {
+            _readbuffer.push_back(cbuf);
+          }
+          break;
+        }
+        if (!rs.empty()) {
+          ParsePLCMessage(rs);
+          rs.clear();
+        }
       }
     }
     // check for output queue and eventually send its contents, one at a time.

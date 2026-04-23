@@ -104,4 +104,22 @@ if(BUILD_TESTING)
         message(STATUS "GTest not found — skipping C++ unit tests (install libgtest-dev)")
     endif()
 
+    # ------------------------------------------------------------------
+    # End-to-end PLC serial test via indiserver + virtual PTY emulator
+    # ------------------------------------------------------------------
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    find_program(INDISERVER_BIN indiserver)
+    find_program(INDI_GETPROP_BIN indi_getprop)
+    find_program(INDI_SETPROP_BIN indi_setprop)
+    find_program(SOCAT_BIN socat)
+
+    if(Python3_Interpreter_FOUND AND INDISERVER_BIN AND INDI_GETPROP_BIN AND INDI_SETPROP_BIN AND SOCAT_BIN)
+        add_test(
+            NAME gapers_plc_fifo_e2e
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/e2e_plc_fifo_test.py --driver $<TARGET_FILE:indi_gapers>
+        )
+    else()
+        message(STATUS "Skipping gapers_plc_fifo_e2e (requires: python3, indiserver, indi_getprop, indi_setprop, socat)")
+    endif()
+
 endif()

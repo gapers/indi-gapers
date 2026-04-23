@@ -4,6 +4,7 @@ import json
 import os
 import select
 import sys
+import time
 import tty
 
 
@@ -64,10 +65,20 @@ def parse_tx_payload(payload: bytes):
     }
 
 
+def build_frame(payload_text: str) -> bytes:
+    body = payload_text.encode("ascii")
+    return bytes([ASCII_STX]) + body + bytes([ASCII_ETX])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Minimal PTY peer for indi-gapers virtual serial tests")
     parser.add_argument("device", help="PTY device path, e.g. /dev/pts/27")
     parser.add_argument("--echo", action="store_true", help="Echo back any received bytes")
+    parser.add_argument(
+        "--emit-vn",
+        action="store_true",
+        help="Emit vn events to emulate end-of-movement notifications from PLC",
+    )
     parser.add_argument(
         "--capture-jsonl",
         help="Optional path to a JSONL file where each received PLC frame is appended",
@@ -82,6 +93,11 @@ def main() -> int:
     if args.capture_jsonl:
         capture_fp = open(args.capture_jsonl, "a", encoding="utf-8")
 
+    # Minimal PLC state: track pending movement completion events.
+    ra_pending = False
+    dec_pending = False
+    dome_pending = False
+
     frame_buffer = bytearray()
     try:
         while True:
@@ -94,10 +110,54 @@ def main() -> int:
 
             frame_buffer.extend(data)
             for frame in extract_frames(frame_buffer):
+                parsed = parse_tx_payload(frame)
                 if capture_fp is not None:
-                    json.dump(parse_tx_payload(frame), capture_fp)
+                    json.dump(parsed, capture_fp)
                     capture_fp.write("\n")
                     capture_fp.flush()
+
+                if args.emit_vn and isinstance(parsed.get("cmd"), int):
+                    syst = str(parsed.get("syst", ""))
+                    cmd = int(parsed["cmd"])
+                    val = int(parsed.get("val", 0))
+
+                    if cmd == 15:
+                        if syst == "1":
+                            ra_pending = True
+                        elif syst == "2":
+                            dec_pending = True
+                    elif cmd == 8:
+                        if syst == "0":
+                            os.write(fd, build_frame("1vn 0 8 1 "))
+                            os.write(fd, build_frame("2vn 0 8 1 "))
+                            ra_pending = False
+                            dec_pending = False
+                        elif syst == "1":
+                            os.write(fd, build_frame("1vn 0 8 1 "))
+                            ra_pending = False
+                        elif syst == "2":
+                            os.write(fd, build_frame("2vn 0 8 1 "))
+                            dec_pending = False
+                    elif cmd == 14:
+                        if syst == "0":
+                            os.write(fd, build_frame("1vn 0 4 1 "))
+                            os.write(fd, build_frame("2vn 0 4 1 "))
+                            ra_pending = False
+                            dec_pending = False
+                        elif syst == "1":
+                            os.write(fd, build_frame("1vn 0 4 1 "))
+                            ra_pending = False
+                        elif syst == "2":
+                            os.write(fd, build_frame("2vn 0 4 1 "))
+                            dec_pending = False
+                    elif syst == "2" and cmd == 9 and val == 2:
+                        dome_pending = True
+                    elif syst == "2" and cmd == 5 and val == 1 and dome_pending:
+                        # Dome slew completed (var 9, whr 2)
+                        os.write(fd, build_frame("2vn 0 9 2 "))
+                        dome_pending = False
+                        # Leave a tiny gap so logs and state transitions are easier to follow.
+                        time.sleep(0.02)
 
             if args.echo:
                 os.write(fd, data)
