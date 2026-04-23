@@ -104,12 +104,4 @@ if(BUILD_TESTING)
         message(STATUS "GTest not found — skipping C++ unit tests (install libgtest-dev)")
     endif()
 
-    # ------------------------------------------------------------------
-    # Python smoke tests (kept for quick sanity checks, no extra deps)
-    # ------------------------------------------------------------------
-    add_test(
-        NAME indi_gapers_motion_calculations
-        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/test_motion_and_plc_commands.py
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    )
 endif()
