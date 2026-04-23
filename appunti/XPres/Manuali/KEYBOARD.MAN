@@ -1,0 +1,1111 @@
+
+ÉÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ»
+º(C)1992,93 EVER S.n.C.º     TASTIERE     º Ultima revisione: 10/02/93º
+ÇÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¶   SISTEMI XPRES  ÇÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¶
+ÈÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼ 
+
+
+
+
+
+
+                            I N D I C E
+
+
+
+
+
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³  CAPITOLO  ³              ARGOMENTO                 ³     PAGINA     ³
+ÃÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´ 
+³            ³                                        ³                ³
+³     1      ³ Tastiere                               ³        2       ³
+³            ³                                        ³                ³
+³     2      ³ Collegamento PC-TASTIERA-MPP14-01      ³        3       ³
+³            ³                                        ³                ³
+³     3      ³ Programmazione tastiera                ³        4       ³
+³            ³                                        ³                ³
+³     4      ³ Messaggi di output standard            ³        6       ³
+³            ³                                        ³                ³
+³     5      ³ Parametri di visualizzazione           ³        8       ³
+³            ³                                        ³                ³
+³     6      ³ Tipi tastiere                          ³       11       ³
+³            ³                                        ³                ³
+³     7      ³ Numerazione led                        ³       13       ³
+³            ³                                        ³                ³
+³     8      ³ Comandi tastiera trasmessi su RS-232   ³       14       ³
+³            ³                                        ³                ³
+³     9      ³ Comandi per la tastiera dedicata       ³       17       ³
+³            ³                                        ³                ³
+³    10      ³ Come utilizzare una tastiera           ³       18       ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+             
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+EVER S.n.C.
+
+ELETTRONICA
+PER AUTOMAZIONE
+INDUSTRIALE
+
+                                    -- 1 --
+
+                                T A S T I E R E
+
+
+                                                                         
+
+     Le tastiere TSMC01 o TVME01 vengono generalmente usate per impostare
+i dati utente in variabili oppure per visualizzare particolari messaggi o
+determinati valori numerici dell'utente. Ad ogni tasto delle tastiere Š
+associato una predefinita variabile il cui valore nel programma utente Š
+modificabile dal tasto stesso. Ad ogni tasto Š pure associato un messaggio
+di input (massimo 12 caratteri), programmabile mediante il programma Prota2
+(Vedi pag. 4), che pu• essere visualizzato sulla prima riga del display
+ogni volta che viene premuto il tasto stesso.   possibile programmare anche
+dei messaggi di output (massimo 20 caratteri) che possono essere
+visualizzati sul display dalla seconda riga in poi mediante l'esecuzione
+della macro 'mn' (Vedi manuale XPRESMAC.MAN) all'interno del programma
+NOMEFILE.CMD (vedi manuale XPRES.MAN). La personalizzazione dei messaggi
+di input e output Š eseguita con una programmazione dal personal computer.
+I messaggi personalizzati di input e di output risiedono nella EıPROM della
+tastiera.
+
+                                    -- 2 --
+
+       C O L L E G A M E N T O   P C - T A S T I E R A - M P P 1 4 - 0 1
+
+
+
+
+     Per il collegamento PC-tastiera-MPP14-01 di programmazione dei
+messaggi della tastiera deve essere utilizzato un cavo con il seguente
+schema :
+
+
+
+                   ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿ (TSMC01 o TVME01) 
+                   ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (9 poli maschio)
+                   ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ 
+
+
+                   ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿ 
+                   ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (CAVO)
+                   ÀÄÄÁÂÄÁÂÄÁÂÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÙ (9 poli femmina)
+           ÚÄÄÄÄÄÄÄÄÄÄÄÙ  ³  ³  ³     ³  ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+           ³  ÚÄÄÄÄÄÄÄÄÄÄÄÙ  ³  ³     ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³
+           ³  ³  ÚÄÄÄÄÄÄÄÄÄÄÄÙ  ³     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³  ³
+           ³  ³  ³  ÚÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿     ³  ³  ³
+ (CAVO)ÚÄÄÂÁÄÂÁÄÂÁÄÂÁÄÂÄÄÂÄÄÂÄÄÂÄÄ¿ ÚÄÄÂÄÄÂÄÄÂÄÄÂÁÄÂÄÄÂÁÄÂÁÄÂÁÄ¿ (CAVO)
+9 poli ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ 9 poli
+maschioÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ femmina
+
+
+ (PC)  ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿ ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿(MPP14)
+ 9 poli³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ 9 poli
+femminaÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ maschio
+                                             
+        
+     Tramite questo collegamento la tastiera riceve l'alimentazione dal
+driver MPP14-01 (pin 7, 8, 9) da cui peraltro Š sconnessa, essendo connessa
+unicamente con il personal computer.
+
+                                    -- 3 --
+
+                 P R O G R A M M A Z I O N E   T A S T I E R A
+
+
+
+
+     Per la programmazione dei messaggi di input e output di tastiera si
+deve usare il programma MS-DOS PROTA2.EXE attivato digitando:
+
+         PROTA2 <invio>
+
+     In risposta comparir… il seguente men— :
+                                                
+   ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+   ³                                                                   ³
+   ³                  PROGRAMMAZIONE TASTIERA                          ³
+   ³                                                                   ³
+   ³    (1) Messaggi INPUT                                             ³
+   ³    (2) Messaggi OUTPUT                                            ³
+   ³    (3) Tipo Tastiera                                              ³
+   ³    (4) Setup                                                      ³
+   ³    (6) Aiuto                                                      ³
+   ³    (7) Utilit…                                                    ³
+   ³    (5) Fine programmazione tastiera                               ³
+   ³                                                                   ³
+   ³                                                                   ³
+   ³         <<<  COLLEGARE LA TASTIERA AL PERSONAL COMPUTER  >>>      ³
+   ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ 
+    Messaggi INPUT:  Gestisce la programmazione dei messaggi di input 
+                     (visualizza tutti i messaggi di input del file      
+                     utente, visualizza tutti i messaggi di input in     
+                     EıPROM di tastiera, trasmette i messaggi di input   
+                     dal file utente all'EıPROM di tastiera, imposta     
+                     i messaggi di input nel file utente). 
+                     I messaggi di input sono di due tipi :
+
+                             CAV = Se un tasto, e quindi una variabile,
+                                   Š definito di tipo 'cav' ogni volta
+                                   che verr… premuto, se abilitato dal
+                                   programma utente :
+                                   1) visualizzer… il messaggio di
+                                      input associato e il valore        
+                                      corrispondente.
+                                   2) verr… composta e trasmessa all'
+                                      azionamento una stringa contenente
+                                      le informazioni sul Nø di          
+                                      variabile ed il relativo valore    
+                                      impostato.
+
+                             CVF = Se un tasto, e quindi una variabile,
+                                   Š definito di tipo 'cvf' ogni volta
+                                   che verr… premuto, se abilitato dal
+                                   programma utente :
+                                   1) senza attendere il tasto CR        
+                                      trasmetter… all'azionamento una    
+                                      stringa contenente le informazioni 
+                                      sul Nø di variabile ed il relativo 
+                                      valore impostato.
+
+                                    -- 4 --
+
+   - IL NUMERO MASSIMO DI CARATTERI DEI MESSAGGI DI INPUT Š 12.
+ 
+   Messaggi OUTPUT: Gestisce la programmazione dei messaggi di output
+                    (visualizza tutti i messaggi di output del file      
+                    utente, visualizza tutti i messaggi di output in     
+                    EıPROM di tastiera, trasmette i messaggi di output   
+                    dal file utente all'EıPROM di tastiera, imposta i    
+                    messaggi di output nel file utente). 
+
+  IL NUMERO MASSIMO DI CARATTERI DEI MESSAGGI DI OUTPUT PROGRAMMABILI Š 20.
+        
+   Tipo tastiera  : Definisce il tipo di tastiera utente (TSMCTIPO 1 o   
+                    TSMCTIPO 2).  
+                    La tastiera di tipo TSMCTIPO 1 usa la parte destra   
+                    della tastiera come pad numerico, mentre la sinistra 
+                    (FIG. B) gestisce le variabili.
+                    La tastiera TSMCTIPO 2 si differenzia dalla          
+                    TSMCTIPO 1 solo nella gestione del pad sinistro      
+                    dove, premendo due volte consecutive un tasto si     
+                    attiva la seconda funzione (FIG. C).
+                    La logica di associazione tasti/variabili Š identica 
+                    in entrambi i tipi di tastiera.
+ 
+   Setup          : Setta la configurazione per la programmazione della
+                    tastiera (nome del file utente contenente i messaggi
+                    di input, nome del file contenente i messaggi di 
+                    output e numero della porta seriale per la 
+                    comunicazione tra il personal computer e la tastiera
+                    TSMC01).  importante anche settare il tipo di       
+                    sistema utilizzato (MPP14-01).
+
+   Aiuto          : Semplice aiuto su come attuare la programmazione dei 
+                    messaggi.
+   
+   Utilit…        : Cambia la directory attiva,torna al DOS, d…          
+                    informazioni sul programma Prota2.
+
+                                    -- 5 --
+
+             M E S S A G G I   D I   O U T P U T    S T A N D A R D
+
+
+ 
+
+     L'utente pu• decidere se usare i messaggi di output personalizzati
+attraverso la programmazione della tastiera e quindi memorizzati in EıPROM
+come i messaggi di input, oppure usare i messaggi di output 'standard'
+memorizzati in EPROM, e quindi non modificabili. I messaggi di output
+standard, individuabili con un Nø compreso fra 30 e 50 sono i seguenti :
+
+
+
+
+              Nø MSG.           M E S S A G G I O            
+      
+
+    
+                              '  M A C C H I N A   '
+                30            '        I N         '
+                              '     C I C L O      '
+
+                              '                    '
+                31            '     S T A R T      '
+                              '    M O T O R E     '
+       
+                              '                    '
+                32            '      S T O P       '
+                              '    M O T O R E     '
+
+                              '                    '
+                33            '                    '
+                              '                    '
+
+                              '                    '
+                34            ' P R O T E Z I O N E'
+                              '     A P E R T A    '
+        
+                              '                    '
+                35            '    VALORE  FUORI   '
+                              '       LIMITE       '
+
+                              '                    '
+                36            '   PROGRAMMAZIONE   '
+                              '                    '
+
+                              '                    '
+                37            '  E M E R G E N Z A '
+                              '     INSERITA       '
+        
+                              '                    '
+                38            '  E M E R G E N Z A '
+                              '    DISINSERITA     '
+
+                              '                    '
+                39            '     DIAGNOSTICA    '
+                              '      INSERITA      '
+
+                                    -- 6 --
+
+              Nø MSG.           M E S S A G G I O   
+         
+
+
+
+                              '                    '
+                40            '      C I C L O     '
+                              '    M A N U A L E   '
+                              '                    '
+                41            '      C I C L O     '
+                              ' A U T O M A T I C O'
+
+                              '                    '
+                42            '      C I C L O     '
+                              '    S I N G O L O   '
+                         
+                              '                    '
+                43            '      C I C L O     '
+                              '   C O N T I N U O  '
+
+                                    -- 7 --
+
+             P A R A M E T R I   D I   V I S U A L I Z Z A Z I O N E
+
+
+
+
+     Nella maggior parte della macroistruzioni adibite alla visualizzazione
+su tastiera TSMC01 o TVME01 sono richiesti due argomenti:                
+
+        CONDIZIONE DI VISUALIZZAZIONE
+        PARAMETRO DI VISUALIZZAZIONE         
+
+
+     La 'CONDIZIONE DI VISUALIZZAZIONE' Š un codice che pu• assumere i
+seguenti significati:
+
+
+
+
+  CONDIZIONE                AZIONE
+
+
+
+
+      1                  Cicalino tastiera       
+      2                  Clear screen      
+      3                  Clear screen + cursor home      
+      4                  Nulla                    
+      5-9                Attualmente nulle    
+      10                 Cls, Visualizza 1 cifra + segno
+      11                 Cls, Visualizza 2 cifre + segno
+      12                 Cls, Visualizza 3 cifre + segno
+      13                 Cls, Visualizza 4 cifre + segno
+      14                 Cls, Visualizza 5 cifre + segno 
+      15                 Cls, Visualizza 6 cifre + segno
+      16                 Cls, Visualizza 7 cifre + segno
+      17-19              Attualmente nulle
+      20                 Visualizza 1 cifra + segno
+      21                 Visualizza 2 cifre + segno
+      22                 Visualizza 3 cifre + segno     
+      23                 Visualizza 4 cifre + segno     
+      24                 Visualizza 5 cifre + segno 
+      25                 Visualizza 6 cifre + segno
+      26                 Visualizza 7 cifre + segno
+      27-29              Attualmente nulle
+      30                 Cls, Visualizza 1 carattere del messaggio
+      31                 Cls, Visualizza 2 caratteri del messaggio
+      32                 Cls, Visualizza 3 caratteri del messaggio 
+      33                 Cls, Visualizza 4 caratteri del messaggio
+      34                 Cls, Visualizza 5 caratteri del messaggio
+      35                 Cls, Visualizza 6 caratteri del messaggio
+      36                 Cls, Visualizza 7 caratteri del messaggio
+      37                 Cls, Visualizza 8 caratteri del messaggio
+      38                 Cls, Visualizza 9 caratteri del messaggio
+
+                                    -- 8 --
+
+  CONDIZIONE                AZIONE
+
+
+
+ 
+      39                 Cls, Visualizza 10 caratteri del messaggio
+      40                 Cls, Visualizza 11 caratteri del messaggio
+      41                 Cls, Visualizza 12 caratteri del messaggio
+      42                 Cls, Visualizza 13 caratteri del messaggio
+      43                 Cls, Visualizza 14 caratteri del messaggio
+      44                 Cls, Visualizza 15 caratteri del messaggio
+      45                 Cls, Visualizza 16 caratteri del messaggio
+      46                 Cls, Visualizza 17 caratteri del messaggio
+      47                 Cls, Visualizza 18 caratteri del messaggio
+      48                 Cls, Visualizza 19 caratteri del messaggio
+      49                 Cls, Visualizza 20 caratteri del messaggio
+      50                 Cls, Visualizza 21 caratt. del mess. (TVME01)
+      51                 Cls, Visualizza 22 caratt. del mess. (TVME01)
+      52                 Cls, Visualizza 23 caratt. del mess. (TVME01)
+      53                 Cls, Visualizza 24 caratt. del mess. (TVME01)
+      54                 Cls, Visualizza 25 caratt. del mess. (TVME01)
+      55                 Cls, Visualizza 26 caratt. del mess. (TVME01)
+      56                 Cls, Visualizza 27 caratt. del mess. (TVME01)
+      57                 Cls, Visualizza 28 caratt. del mess. (TVME01)
+      58                 Cls, Visualizza 29 caratt. del mess. (TVME01)
+      59                 Cls, Visualizza 30 caratt. del mess. (TVME01)
+      60                 Cls, Visualizza 31 caratt. del mess. (TVME01)
+      61                 Cls, Visualizza 32 caratt. del mess. (TVME01)
+      62                 Cls, Visualizza 33 caratt. del mess. (TVME01)
+      63                 Cls, Visualizza 34 caratt. del mess. (TVME01)
+      64                 Cls, Visualizza 35 caratt. del mess. (TVME01)
+      65                 Cls, Visualizza 36 caratt. del mess. (TVME01)
+      66                 Cls, Visualizza 37 caratt. del mess. (TVME01)
+      67                 Cls, Visualizza 38 caratt. del mess. (TVME01)
+      68                 Cls, Visualizza 39 caratt. del mess. (TVME01)
+      69                 Cls, Visualizza 40 caratt. del mess. (TVME01)
+      70                 Cls, Visualizza 41 caratt. del mess. (TVME01)
+      71                 Cls, Visualizza 42 caratt. del mess. (TVME01)
+      72-79              Attualmente nulle
+      80                 Visualizza 1 carattere del messaggio
+      81                 Visualizza 2 caratteri del messaggio
+      82                 Visualizza 3 caratteri del messaggio
+      83                 Visualizza 4 caratteri del messaggio   
+      84                 Visualizza 5 caratteri del messaggio
+      85                 Visualizza 6 caratteri del messaggio
+      86                 Visualizza 7 caratteri del messaggio
+      87                 Visualizza 8 caratteri del messaggio
+      88                 Visualizza 9 caratteri del messaggio
+      89                 Visualizza 10 caratteri del messaggio
+      90                 Visualizza 11 caratteri del messaggio
+      91                 Visualizza 12 caratteri del messaggio
+      92                 Visualizza 13 caratteri del messaggio
+      93                 Visualizza 14 caratteri del messaggio
+      94                 Visualizza 15 caratteri del messaggio
+      95                 Visualizza 16 caratteri del messaggio
+      96                 Visualizza 17 caratteri del messaggio
+      97                 Visualizza 18 caratteri del messaggio
+
+                                    -- 9 --
+
+  CONDIZIONE                AZIONE
+
+
+
+
+      98                 Visualizza 19 caratteri del messaggio
+      99                 Visualizza 20 caratteri del messaggio
+     100                 Visualizza 21 caratteri del messaggio (TVME01)
+     101                 Visualizza 22 caratteri del messaggio (TVME01)
+     102                 Visualizza 23 caratteri del messaggio (TVME01)
+     103                 Visualizza 24 caratteri del messaggio (TVME01)
+     104                 Visualizza 25 caratteri del messaggio (TVME01)
+     105                 Visualizza 26 caratteri del messaggio (TVME01)
+     106                 Visualizza 27 caratteri del messaggio (TVME01)
+     107                 Visualizza 28 caratteri del messaggio (TVME01)
+     108                 Visualizza 29 caratteri del messaggio (TVME01)
+     109                 Visualizza 30 caratteri del messaggio (TVME01)
+     110                 Visualizza 31 caratteri del messaggio (TVME01)
+     111                 Visualizza 32 caratteri del messaggio (TVME01)
+     112                 Visualizza 33 caratteri del messaggio (TVME01)
+     113                 Visualizza 34 caratteri del messaggio (TVME01)
+     114                 Visualizza 35 caratteri del messaggio (TVME01)
+     115                 Visualizza 36 caratteri del messaggio (TVME01)
+     116                 Visualizza 37 caratteri del messaggio (TVME01)
+     117                 Visualizza 38 caratteri del messaggio (TVME01)
+     118                 Visualizza 39 caratteri del messaggio (TVME01)
+     119                 Visualizza 40 caratteri del messaggio (TVME01)
+     120                 Visualizza 41 caratteri del messaggio (TVME01)
+     121                 Visualizza 42 caratteri del messaggio (TVME01)
+
+
+     Il 'PARAMETRO DI VISUALIZZAZIONE' Š la posizione sul display a partire 
+  dalla quale verr… visualizzata la stringa letta dalla seguente tabella:
+
+                             TASTIERA TSMC01        
+        
+        ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+        ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³
+        ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³
+        ÃÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄ´
+        ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³
+        ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³10³11³12³13³14³15³16³17³18³19³20³
+        ÃÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄ´
+        ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³
+        ³21³22³23³24³25³26³27³28³29³30³31³32³33³34³35³36³37³38³39³40³
+        ÃÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄ´
+        ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³
+        ³41³42³43³44³45³46³47³48³49³50³51³52³53³54³55³56³57³58³59³60³
+        ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+
+                                    -- 10 --
+
+                            T I P I   T A S T I E R E
+
+
+
+
+
+
+                             TASTIERA   TSMCTIPO   1
+
+
+
+
+     La TSMCTIPO 1 Š una particolare gestione della tastiera TSMC01 e
+consta di dodici tasti funzione a ciascuno dei quali Š associata una
+variabile e dodici tasti di impostazione (vedi figura B). 
+Premendo un tasto funzione definito in modo CAV (Con Attesa Valore) verr…
+visualizzato sulla prima riga del display il messaggio di input
+corrispondente a quel tasto e il valore numerico in precedenza associato
+alla variabile relativa e che pu• essere modificato agendo sui tasti
+numerici del pad di destra sulla tastiera o lasciato invariato premendo il
+tasto enter o qualsiasi altro tasto funzione. Se si desidera impostare un
+valore negativo bisogna premere il tasto con la doppia funzione di
+backspace e operazione aritmetica "-" come primo tasto di impostazione;
+mentre lo stesso tasto permette la cancellazione dell'ultimo numero scritto
+se lo si preme durante la composizione del dato.
+Se si preme un tasto funzione definito in modo CVF (Con Valore Fisso) il
+messaggio di input associato non verr… visualizzato ma verr… immediatamente
+inviato all'azionamento il dato specificato durante la programmazione della
+tastiera.
+
+           Corrispondenza tasti-variabili (tastiera TSMCTIPO 1) :
+
+        (tasti di sinistra)                   (tasti di destra)
+    ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿        ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿
+    ³o       ³o       ³o       ³        ³        ³        ³        ³
+    ³  v000  ³  v001  ³  v002  ³        ³    7   ³    8   ³   9    ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´        ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³o       ³o       ³o       ³        ³        ³        ³        ³
+    ³  v003  ³  v004  ³  v005  ³        ³    4   ³    5   ³   6    ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´        ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³o       ³o       ³o       ³        ³        ³        ³        ³
+    ³  v006  ³  v007  ³  v008  ³        ³    1   ³    2   ³   3    ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´        ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³o       ³o       ³o       ³        ³ Back[-]³        ³        ³
+    ³  v009  ³  v010  ³  v011  ³        ³ Space  ³    0   ³   CR   ³
+    ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ        ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ
+                                                                    
+                                (FIG. B)
+
+                                    -- 11 --
+
+
+                             TASTIERA   TSMCTIPO   2
+
+
+
+
+     La TSMCTIPO 2 differisce dalla TSMCTIPO 1 per il maggior numero di
+tasti funzione disponibili che risultano 20 di cui 12 in prima funzione e
+8 in seconda funzione. Quest'ultima Š ottenibile premendo una seconda volta
+lo stesso tasto funzione (vedi figura C).
+Premendo un tasto funzione predefinito in modo CAV (Con Attesa Valore)
+verr… visualizzato il messaggio di input corrispondente a quel tasto e il
+valore numerico associato in precedenza alla variabile relativa e che pu•
+essere modificato agendo sui tasti del pad di destra sulla tastiera o
+lasciato invariato premendo il tasto CR o qualsiasi altro tasto funzione.
+Premendo due volte lo stesso tasto della tastiera di sinistra viene
+attivata la seconda funzione e quindi viene visualizzato il messaggio e il
+valore della variabile associata che ora Š possibile modificare. Se si
+preme una terza volta lo stesso tasto si ha il ritorno di quel tasto in
+prima funzione. Se si desidera impostare un valore negativo bisogna premere
+il tasto con la doppia funzione di backspace e operazione aritmetica "-"
+come primo tasto di impostazione; mentre lo stesso tasto permette la
+cancellazione dell'ultimo numero scritto se lo si preme durante la
+composizione del dato. 
+Se si preme un tasto funzione definito in modo CVF (Con Valore Fisso) il
+messaggio di input associato non verr… visualizzato ma verr… immediatamente
+inviato all'azionamento il dato specificato durante la programmazione della
+tastiera.
+                                                                         
+             Corrispondenza tasti-variabili (tastiera TSMCTIPO 2) :
+
+
+       (tasti di sinistra)                   (tasti di destra)
+    ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿        ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿
+    ³o v000  ³o v001  ³o v002  ³        ³        ³        ³        ³
+    ³ [v012] ³ [v013] ³ [v014] ³        ³    7   ³    8   ³   9    ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´        ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³o v003  ³o v004  ³o v005  ³        ³        ³        ³        ³
+    ³ [v015] ³ [v016] ³ [v017] ³        ³    4   ³    5   ³   6    ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´        ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³o v006  ³o v007  ³o v008  ³        ³        ³        ³        ³
+    ³ [v018] ³ [v019] ³        ³        ³    1   ³    2   ³   3    ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´        ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³o v009  ³o v010  ³o v011  ³        ³ Back[-]³        ³        ³
+    ³        ³        ³        ³        ³ Space  ³    0   ³   CR   ³
+    ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ        ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ
+                                                                    
+                                (FIG. C)
+
+                                    -- 12 --
+
+                          N U M E R A Z I O N E   L E D
+
+
+
+
+     La seguente tabella indica il N	 di identificazione dei led sulla
+tastiera.
+                               
+              ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ 
+              ³                                            ³ o  Aliment.
+              ³                                            ³ o  8 (led3)
+              ³                                            ³ o  4 (led2)
+              ³                                            ³ o  2 (led1)
+              ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ o  1 (led0)
+                              
+  ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿              ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿
+  ³o(led15)³o(led14)³o(led13)³              ³        ³        ³        ³
+  ³        ³        ³        ³              ³        ³        ³        ³
+  ³  32768 ³  16384 ³  8192  ³              ³        ³        ³        ³
+  ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´              ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+  ³o(led12)³o(led11)³o(led10)³              ³        ³        ³        ³
+  ³        ³        ³        ³              ³        ³        ³        ³
+  ³  4096  ³  2048  ³  1024  ³              ³        ³        ³        ³
+  ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´              ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+  ³o(led9) ³o(led8) ³o(led7) ³              ³        ³        ³        ³
+  ³        ³        ³        ³              ³        ³        ³        ³
+  ³  512   ³  256   ³  128   ³              ³        ³        ³        ³
+  ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´              ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+  ³o(led6) ³o(led5) ³o(led4) ³              ³        ³        ³        ³
+  ³        ³        ³        ³              ³        ³        ³        ³
+  ³  64    ³  32    ³  16    ³              ³        ³        ³        ³
+  ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ              ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ
+                                                                  
+                                   (FIG. D)
+
+     Ogni N	 di led corrisponde ad un valore decimale ottenuto dalla
+potenza di 2 avendo il N	 come esponente :
+                                               
+               ÚÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+               ³    LED     ³    VALORE DECIMALE      ³
+               ÃÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+               ³     15     ³   32768 (2^15) decimale ³    
+               ³     14     ³   16384 (2^14) decimale ³    
+               ³     13     ³    8192 (2^13) decimale ³    
+               ³     12     ³    4096 (2^12) decimale ³    
+               ³     11     ³    2048 (2^11) decimale ³    
+               ³     10     ³    1024 (2^10) decimale ³    
+               ³      9     ³     512 (2^9)  decimale ³    
+               ³      8     ³     256 (2^8)  decimale ³    
+               ³      7     ³     128 (2^7)  decimale ³    
+               ³      6     ³      64 (2^6)  decimale ³    
+               ³      5     ³      32 (2^5)  decimale ³    
+               ³      4     ³      16 (2^4)  decimale ³     
+               ³      3     ³       8 (2^3)  decimale ³    
+               ³      2     ³       4 (2^2)  decimale ³    
+               ³      1     ³       2 (2^1)  decimale ³    
+               ³      0     ³       1 (2^0)  decimale ³    
+               ÀÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+                                    -- 13 --
+
+ C O M A N D I   T A S T I E R A   T R A S M E S S I   S U   R S - 2 3 2
+
+
+                        
+
+     Per la spiegazione della simbologia utilizzata nella sintassi dei
+comandi per la tastiera riferirsi all'introduzione del manuale
+XPRESMAC.MAN.
+
+    I comandi trasmessi su RS-232 sono di 2 tipi :
+                        
+                        
+    (1) COMANDI TRASMESSI DALLA TASTIERA DEDICATA AL SISTEMA MPP14-01 :
+                        
+                        
+        COMANDO    : tx
+ 
+        Scopo      : Attribuisce un valore numerico alla variabile       
+                     specificata nel comando durante l'esecuzione        
+                     diretta del programma.
+ 
+        [Com.Dir]  : <stx><id>tx<sp>[arg1]<sp>[arg2]<sp><cks><etx>
+                     [Arg1] : << Numero variabile corrispondente ad un   
+                                tasto della tastiera dedicata >>
+                     [Argomento variabile]
+                     [Valore minimo]  : 0
+                     [Valore massimo] : 19
+                     [Arg2] 
+                     [Argomento numerico]
+                                            
+        COMANDO    : mc
+ 
+        Scopo      : Visualizza il messaggio di input associato alla     
+                     variabile e il relativo valore numerico memorizzato 
+                     in EıPROM.
+                                
+        [Com.Dir]  : <stx><id>mc<sp>[arg1]<sp><cks><etx>
+                     [Arg1] : << Numero variabile corrispondente ad un   
+                                 tasto della tastiera dedicata >>
+                     [Argomento variabile]
+                     [Valore minimo]  : 0
+                     [Valore massimo] : 19
+                      
+     I due comandi possono essere usati solo nel caso in cui si volesse
+simulare la tastiera dedicata attraverso il PC.
+
+                                    -- 14 --                              
+
+    (2) COMANDI TRASMESSI DAL SISTEMA MPP14-01 ALLA TASTIERA DEDICATA:
+
+                        
+        COMANDO   : vy
+ 
+        Scopo     : Setta la disponibilit… di tutti i tasti della        
+                    tastiera dedicata.
+
+        [Com.Dir] : <stx><id>vy<sp><cks><etx>
+
+        COMANDO   : vk
+
+        Scopo     : Setta la non disponibilit… di tutti i tasti della    
+                    tastiera dedicata.
+
+        [Com.Dir] : <stx><id>vk<sp><cks><etx>
+
+
+        COMANDO   : vx
+  
+        Scopo     : Visualizza il messaggio di input associato alla      
+                    variabile specificata e il valore attuale della      
+                    variabile.
+
+        [Com.Dir] : <stx><id>vx<sp>[arg1]<sp>[arg2]<sp><cks><etx>
+ 
+                    [Arg1] : << Numero variabile corrispondente ad un    
+                                tasto della tastiera dedicata >>
+                    [Argomento variabile]
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 19
+                    [Arg2] : << Valore della variabile >>
+                    [Valore numerico]
+                              
+        COMANDO   : vj
+
+        Scopo     : Disattiva 3 tasti della tastiera dedicata
+ 
+        [Com.Dir] :                                                      
+               <stx><id>vj<sp>[arg1]<sp>[arg2]<sp>[arg3]<sp><cks><etx>
+ 
+                    [Arg1] : << Numero variabile corrispondente ad un o  
+                                tasto della tastiera dedicata >>
+                    [Argomento variabile]
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 19
+                    [Arg2] : << Numero variabile corrispondente ad un    
+                                tasto della tastiera dedicata >>
+                    [Argomento variabile]
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 19
+                    [Arg3] : << Numero variabile corrispondente ad un    
+                                tasto della tastiera dedicata >>
+                    [Argomento variabile]
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 19
+
+                                    -- 15 --
+        COMANDO   : vw
+
+        Scopo     : Attiva 3 tasti della tastiera dedicata.
+ 
+        [Com.Dir] :                                   
+               <stx><id>vw<sp>[arg1]<sp>[arg2]<sp>[arg3]<sp><cks><etx>
+
+                    [Arg1] : << Numero variabile corrispondente ad un    
+                                tasto della tastiera dedicata >>
+                    [Argomento variabile]
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 19
+                    [Arg2] : << Numero variabile corrispondente ad un    
+                                tasto della tastiera dedicata >>
+                    [Argomento variabile]
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 19
+                    [Arg3] : << Numero variabile corrispondente ad un    
+                                tasto della tastiera dedicata >>
+                    [Argomento variabile]
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 19
+
+        COMANDO   : vn
+
+        Scopo     : Visualizza un valore numerico.
+
+        [Com.Dir] :
+              <stx><id>vn<sp>[arg1]<sp>[arg2]<sp>[arg3]<sp><cks><etx>
+
+                    [Arg1] : << Valore numerico da visualizzare >>
+                    [Argomento numerico]
+                    [Arg2] : << condizione di visualizzazione >> 
+                    [Argomento numerico]
+                    [Valore minimo]  : 1
+                    [Valore massimo] : 99 (TSMC01) o 121 (TVME01)
+                    [Arg3] : << parametro di visualizzazione >>
+                    [Argomento numerico]
+                    [Valore minimo]  : 1
+                    [Valore massimo] : 60 (TSMC01) o 295 (TVME01)
+
+        COMANDO   : vr
+
+        Scopo     : Spegne led di tastiera.
+
+        [Com.Dir] : <stx><id>vr<sp>[arg1]<sp><cks><etx>
+
+                    [Arg1] : << Numero led >>
+                    [Argomento numerico] 
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 15
+
+                                    -- 16 --
+
+        COMANDO   : vs
+
+        Scopo     : Accende led di tastiera.
+
+        [Com.Dir] : <stx><id>vs<sp>[arg1]<sp><cks><etx>
+
+                    [Arg1] : << Numero led >>
+                    [Argomento numerico] 
+                    [Valore minimo]  : 0
+                    [Valore massimo] : 15        
+
+        COMANDO   : me
+
+        Scopo     : Visualizza il messaggio di output specificato.
+
+        [Com.Dir] :
+              <stx><id>me<sp>[arg1]<sp>[arg2]<sp>[arg3]<sp><cks><etx>
+
+                    [Arg1] : << Numero messaggio di output >>
+                    [Argomento numerico]
+                    [Valore minimo]  : 0 
+                    [Valore massimo] : 50
+                    [Arg2] : << condizione di visualizzazione >> 
+                    [Argomento numerico]
+                    [Valore minimo]  : 1
+                    [Valore massimo] : 99 (TSMC01) o 121 (TVME01)
+                    [Arg3] : << parametro di visualizzazione >>
+                    [Argomento numerico]
+                    [Valore minimo]  : 1
+                    [Valore massimo] : 60 (TSMC01) o 295 (TVME01)
+
+        COMANDO   : mi
+ 
+        Scopo     : Visualizza un messaggio interno generato dal         
+                    sistema.
+
+        [Com.Dir] : <stx><id>mi<sp>[arg1]<sp><cks><etx>
+
+                    [Arg1] : << Numero messaggio interno >>
+                    [Argomento numerico]
+                    [Valore minimo]  : 400
+                    [Valore massimo] : 599
+
+                                    -- 17 --
+
+        COMANDO   : mm
+
+        Scopo     : Visualizza il messaggio di output associato          
+                    al valore numerico specificato.
+
+        [Com.Dir] :
+             <stx><id>mm<sp>[arg1]<sp>[arg2]<sp>[arg3]<sp><cks><etx>
+
+                    [Arg1] : << Numero messaggio di output >>
+                    [Argomento numerico]
+                    [Valore minimo]  : 0 
+                    [Valore massimo] : 50
+                    [Arg2] : << Valore numerico >> 
+                    [Argomento numerico]
+                    [Arg3] : << parametro di visualizzazione >>
+                    [Argomento numerico]
+                    [Valore minimo]  : 1
+                    [Valore massimo] : 60 (TSMC01) o 295 (TVME01)
+
+                                    -- 18 --
+                         
+                     COMANDI   PER   LA   TASTIERA   DEDICATA
+ 
+
+ 
+ 
+                        ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+                        ³  Tabella riassuntiva   ³
+                        ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+                        ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+                        ³  mc     ==>     vx     ³
+                        ³  vc     ==>     vn     ³
+                        ³  vd     ==>     vn     ³
+                        ³  vq     ==>     vn     ³
+                        ³  vv     ==>     vn     ³
+                        ³  mn     ==>     me     ³
+                        ³  dt     ==>     vy     ³
+                        ³  it     ==>     vk     ³
+                        ³  dtn    ==>     vj     ³
+                        ³  atn    ==>     vw     ³
+                        ³  vmi    ==>     vn     ³
+                        ³  vma    ==>     vn     ³
+                        ³  vdr    ==>     vn     ³
+                        ³  sl     ==>     vs     ³
+                        ³  rl     ==>     vr     ³
+                        ³  vce    ==>     vn     ³
+                        ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ 
+
+     I comandi in tabella sono attivi sull'interfaccia RS-232 e possono
+essere utilizzati solo se invece della tastiera dedicata Š collegato un PC
+nello stato XPRES di comunicazione diretta attivato dal tasto <F5>.  
+
+                                    -- 19 --
+
+                        COME   UTILIZZARE   UNA   TASTIERA
+
+
+
+
+     La prima operazione da eseguire se si desidera utilizzare una tastiera
+Š programmarla utilizzando il programma PROTA2 (Vedi pagina 4).
+Individuato il punto in cui effettuare la gestione della tastiera nel
+file.cmd Š necessario abilitare i tasti che si desiderano utilizzare.  
+importante che le variabili utilizzate per eventuali operazioni
+nell'applicativo siano diversificate da quelle della tastiera. Se si decide
+di limitare il range numerico di validit… per le variabili utilizzate dalla
+tastiera Š importante sapere che ogni qualvolta si inserisce un valore non
+appartenente a questo intervallo il della variabile non verr… alterato.
+I messaggi di input inseriti verranno visualizzati alla pressione del
+relativo tasto funzione quando abilitato mentre i messaggi di output
+verranno visualizzati tutte quelle volte che l'utente lo desidera inserendo
+nell'applicativo la macro che permette tale visualizzazione.
+Si tenga presente che quando si inseriscono dei valori dalla tastiera
+questi automaticamente vengono inseriti nella variabile associata a quel
+tasto.
+
+Esempio:
+ 
+Utilizzando la TSMCTIPO 1 si vuole poter variare i valori di 10 variabili
+e quando si preme il tasto 0 visualizzarli.
+
+Operazioni da svolgere:
+
+   Programmare la tastiera
+
+   a: collegare computer,tastiera e azionamento con il cavo              
+      specifico per la programmazione della tastiera
+   b: setup
+   c: tipo tastiera (TSMCTIPO 1)
+   d: messaggi di input
+      -Definire i messaggi da 0 a 10 con la stringa "VALORE"
+      -definire in modo CAV dal tasto 1 al tasto 10
+      -definire in modo CVF il tasto 0 ed assegnare il valore 1
+      -spedire i messaggi inseriti dopo averli verificati
+      -verificare che i messaggi risiedano in EıPROM di tastiera
+   e: messaggi di output
+      -Definire il messaggio 0 con la stringa "Valore variabile"
+      -spedire il messaggio inserito dopo averlo verificato
+      -verificare che il messaggio risieda in EıPROM di tastiera
+
+                                    -- 20 --
+
+
+   PROGRAMMA APPLICATIVO :
+
+
+
+
+     pe                        Setta fase di esecuzione diretta
+*                              comandi
+     nw                        Azzera programma precedente
+     p                         Setta fase di programmazione
+*
+lab0 tvv     0     0     1     Range variabile 0 da 0 a 1
+     tvv     1     0     9     Range variabile 1 da 0 a 9
+     tvv     2     0     9     Range variabile 2 da 0 a 9
+     tvv     3     0     9     Range variabile 3 da 0 a 9
+     tvv     4     0     9     Range variabile 4 da 0 a 9
+     tvv     5     0     9     Range variabile 5 da 0 a 9
+     tvv     6     0     9     Range variabile 6 da 0 a 9
+     tvv     7     0     9     Range variabile 7 da 0 a 9
+     tvv     8     0     9     Range variabile 8 da 0 a 9
+     tvv     9     0     9     Range variabile 9 da 0 a 9
+     tvv     10    0     9     Range variabile 10 da 0 a 9
+     sv      0     0           Azzera variabile 0
+     sv      1     0           Azzera variabile 1
+     sv      2     0           Azzera variabile 2
+     sv      3     0           Azzera variabile 3
+     sv      4     0           Azzera variabile 4
+     sv      5     0           Azzera variabile 5
+     sv      6     0           Azzera variabile 6
+     sv      7     0           Azzera variabile 7
+     sv      8     0           Azzera variabile 8
+     sv      9     0           Azzera variabile 9
+     sv      10    0           Azzera variabile 10
+labs atn     0     1     2     Abilita i tasti 0 1 2
+     atn     3     4     5     Abilita i tasti 3 4 5
+     atn     6     7     8     Abilita i tasti 6 7 8
+     atn     9     10    10    Abilita i tasti 9 10
+
+* Se il tasto 0 viene premuto, automaticamente viene inserito
+* nella variabile 0 il valore 1.
+
+lab1 ivu     0     0     lab1  Attendi che il tasto 0 sia premuto
+     sv      0     0           Azzera nuovamente la variabile 0
+     it                        Disabilita tutti i tasti
+     mn      0     45    1     Visualizza messaggio di output 0
+     vv      1     20    18    Visualizza valore variabile 1
+     sl      16384             Setta led del tasto di cui viene 
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab2 itd     1     lab2        Fai trascorrere il timer
+*                              dopo di che
+     rl      16384             Resetta il led prima settato
+     vv      2     20    18    Visualizza valore variabile 2
+     sl      8192              Setta led del tasto di cui viene   
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab3 itd     1     lab3        Fai trascorrere il timer
+
+                                    -- 21 --
+
+*                              dopo di che
+     rl      8192              Resetta il led prima settato
+     vv      3     20    18    Visualizza valore variabile 3 
+     sl      4096              Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab4 itd     1     lab4        Fai trascorrere il timer
+*                              dopo di che
+     rl      4096              Resetta il led prima settato
+     vv      4     20    18    Visualizza valore variabile 4          
+     sl      2048              Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab5 itd     1     lab5        Fai trascorrere il timer
+*                              dopo di che
+     rl      2048              Resetta il led prima settato           
+     vv      5     20    18    Visualizza valore variabile 5
+     sl      1024              Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab6 itd     1     lab6        Fai trascorrere il timer
+*                              dopo di che
+     rl      1024              Resetta il led prima settato          
+     vv      6     20    18    Visualizza valore variabile 6         
+     sl      512               Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab7 itd     1     lab7        Fai trascorrere il timer
+*                              dopo di che
+     rl      512               Resetta il led prima settato             
+     vv      7     20    18    Visualizza valore variabile 7            
+     sl      256               Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab8 itd     1     lab8        Fai trascorrere il timer
+*                              dopo di che
+     rl      256               Resetta il led prima settato          
+     vv      8     20    18    Visualizza valore variabile 8
+     sl      128               Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+lab9 itd     1     lab9        Fai trascorrere il timer
+*                              dopo di che
+     rl      128               Resetta il led prima settato  
+     vv      9     20    18    Visualizza valore variabile 9
+     sl      64                Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+labx itd     1     labx        Fai trascorrere il timer
+*                              dopo di che
+     rl      64                Resetta il led prima settato             
+
+     vv      10    20    18    Visualizza valore variabile 10 
+     sl      32                Setta led del tasto di cui viene
+*                              visualizzato il valore contenuto
+     sds     3000  1     0     Fai partire un timer di 3 secondi
+labw itd     1     labw        Fai trascorrere il timer
+
+                                    -- 22 --
+
+*                              dopo di che
+     rl      32                Resetta il led prima settato             
+     j       labs
+
+*
+     pe                        Setta fase di esecuzione diretta         
+*                              comandi
+     eppc                      Salva in EıPROM
+     es     lab0               Esegui il programma dall'inizio
+
+
+     Il programma scritto impedisce all'utente di attribuire alle variabili
+un valore intero superiore a 9 ed inferiore a 0; infatti se si prova ad
+inserire un valore al di fuori di questo intervallo si vedr… che il valore
+in memoria non varia. Come si noter… in ogni variabile Š inserito il valore
+0 settato in testa al programma dalla macro "sv". Durante la
+visualizzazione risulter… impossibile modificare qualsiasi altro valore in
+quanto i tasti risultano disabilitati.
+
+ 
+
+    Collegare il computer all'azionamento e spedire il programma.
+    Collegare ora l'azionamento con la tastiera.
+    Verificare la correttezza del programma.
+    Dopo avere modificato i valori desiderati (dalla variabile 1 alla    
+    variabile 10), Š possibile visualizzarli premendo il tasto relativo  
+    alla variabile 0, quindi compariranno di volta in volta i valori     
+    inseriti accendendo il led relativo alla variabile di cui si sta     
+    visualizzando il valore.
+
+
+
+
+N.B. Si tenga presente di effettuare i vari collegamenti in assenza di   
+     alimentazione sull'azionamento.
+
+                                    -- 23 --
+

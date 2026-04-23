@@ -1,0 +1,2323 @@
+ÉÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ»
+º(C)1992,93 EVER S.n.C.º  MANUALE XPRES   º Ultima revisione: 15/04/93 º
+ÇÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¶ SISTEMI MPP14-01 ÇÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¶
+ÈÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼
+
+
+
+                                                             
+
+
+                             I N D I C E
+
+
+
+
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³  CAPITOLO  ³               ARGOMENTO                ³     PAGINA     ³
+ÃÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³            ³                                        ³                ³
+³     1      ³ Pacchetto XPRES                        ³        2       ³
+³     2      ³ Installazione                          ³        3       ³
+³     3      ³ Schema logico del firmware XPRES       ³        4       ³
+³     4      ³ Menu XPRES                             ³        5       ³
+³     5      ³ Files XPRES                            ³        7       ³
+³     6      ³ Comandi PE, NW, P, EPPC, ES            ³        9       ³
+³     7      ³ Variabili                              ³       10       ³
+³     8      ³ Direttiva VAR                          ³       11       ³
+³     9      ³ Variabili simboliche                   ³       12       ³
+³    10      ³ Comunicazione diretta con l'interprete ³       14       ³
+³    11      ³ Identificatore di sistema              ³       19       ³
+³    12      ³ Ingressi-uscite decimali               ³       21       ³
+³    13      ³ Menu di editor XPRES                   ³       22       ³
+³    14      ³ File .CMD                              ³       23       ³
+³    15      ³ Programmi di esempio                   ³       24       ³
+³    16      ³ Operazioni su programma trasmesso      ³       39       ³
+³    17      ³ Argomenti per macro gestione messaggi  ³       41       ³
+³    18      ³ Messaggi interni                       ³       42       ³
+³    19      ³ Cavo di collegamento per PC-MPP14      ³       46       ³
+³    20      ³ Collegamenti in cascata                ³       47       ³
+³    21      ³ Encoder                                ³       50       ³
+³    22      ³ Registro interno di stato              ³       51       ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+
+
+
+
+
+
+     (C)1993 EVER S.n.C. Tutti i diritti sono riservati.
+
+
+
+
+
+
+  EVER S.n.C.
+ 
+  ELETTRONICA PER AUTOMAZIONE INDUSTRIALE
+ 
+  Z.I. Loc. S. Grato, 1. 20075 LODI (MI) 
+  Tel: 0371/412318  FAX: 0371/412367
+
+
+
+                                    -- 1 --
+
+
+
+                          P A C C H E T T O   X P R E S
+ 
+
+
+
+     XPRES Š un pacchetto contenente i files necessari per la scrittura di
+applicativi usando le macroistruzioni del sistema MPP14-01. Il disco
+XPRES contiene anche programmi di utilit… per facilitare lo sviluppo di
+questi applicativi. I files contenuti nel disco XPRES sono:
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³   XPRES.MAN   ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ   Manuale descrittivo del pacchetto software XPRES
+per sistemi MPP14-01. Esso comprende informazioni sul funzionamento ed
+esempi pratici. E' memorizzato in formato compresso nel file eseguibile 
+XPRESUTL. E' sufficiente eseguire XPRESUTL per ottenere la scompressione 
+dei manuali.
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³  XPRESMAC.MAN ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ   Manuale delle macroistruzioni riconosciute dall'
+interprete XPRES. E' memorizzato in formato compresso nel file eseguibile 
+XPRESUTL.
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³  KEYBOARD.MAN ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ   Manuale per la gestione delle tastiere TSMC01 e
+TVME01. E' memorizzato in formato compresso nel file eseguibile XPRESUTL.
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³   XPRES.EXE   ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ   Programma principale del pacchetto dedicato alla
+scrittura per mezzo di un semplice editor, la compilazione e la trasmissio-
+ne del programma utente. Con esso inoltre si pu• stabilire una comunicazio-
+ne diretta con il sistema MPP14-01.
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³   PROTA2.EXE   ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ  Software per la programmazione dei messaggi delle
+tastiere TSMC01 e TVME01.
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿   
+     ³   RAMPE.EXE    ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ  Software per aiutare l' utente nella scelta dei
+parametri di rampa del motore potendo visualizzarne graficamente l'andamen-
+to. Richiede la presenza di una scheda grafica EGA o VGA a colori. 
+E' memorizzato in formato compresso nel file eseguibile XPRESUTL.
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³   README.DOC  ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ   File in formato ASCII contenente informazioni
+utili che riguardano il pacchetto software XPRES.
+ 
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³  ESEMPIO.CMD  ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ   Esempio di programma XPRES.
+
+                                    -- 2 --
+
+
+
+                           I N S T A L L A Z I O N E                 
+ 
+
+
+
+     I files del pacchetto XPRES sono contenuti in un floppy disks da 3" « 
+formattato a 720 KByte. I programmi XPRES necessitano di un PC con DOS 3.3, 
+almeno 640 KByte di RAM e si avvantaggiano della presenza di un hard disk.
+
+     Per installare XPRES su Hard Disk :
+
+       Inserire il disco XPRES nel drive A
+
+       Digitare :   A:\   <ENTER>
+
+       Digitare :   INSTALL C:\XPRES    <ENTER>
+
+       Il software XPRES verr… installato nella directory  C:\XPRES
+
+       Digitare :   C:\   <ENTER>
+
+       Digitare :   cd \XPRES   <ENTER>
+
+       Digitare :   XPRESUTL   <ENTER>
+
+       Verranno inoltre create le sottodirectory : C:\XPRES\UTILITY
+                                                   C:\XPRES\MANUALS
+                                                   C:\XPRES\ESEMPI
+
+                                    -- 3 --
+
+
+
+      S C H E M A   L O G I C O   D E L   F I R M W A R E   X P R E S
+
+
+
+
+
+                             SISTEMA MPP14-01 E PC 
+
+       ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿            ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+       ³        (PC)           ³            ³      (MPP14-01)      ³
+       ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´            ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+       ³ Programma compilatore ³            ³        EPROM         ³
+       ³ editor XPRES.EXE      ³            ³ Programma interprete ³
+       ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´            ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´ 
+       ³                       ³            ³   RAM non tamponata  ³
+       ³ Programma utente      ÀÄÄÄÄÄÄÄÄÄÄÄÄÙ Memorizzazione       ³
+       ³                         <ÄÄÄÄÄÄÄÄ>   temporanea           ³
+       ³                       ÚÄÄÄÄÄÄÄÄÄÄÄÄ¿ programma utente     ³
+       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ            ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                                            ³       EıPROM         ³
+                                            ³    Memorizzazione    ³
+                                            ³     definitiva       ³
+                                            ³   Programma utente   ³
+                                            ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+                                            ³     RAM tamponata    ³
+                                            ³  Variabili, timers   ³
+                                            ³  contatori, rampa    ³
+                                            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+                                        
+                           SISTEMA MPP14-01 E TSMC01 
+                                       
+       ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿            ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+       ³       (MPP14-01)      ³            ³       (TSMC01)       ³
+       ³ Programma interprete  ÀÄÄÄÄÄÄÄÄÄÄÄÄÙ Programma interprete ³
+       ³ del sistema MPP14-01    <ÄÄÄÄÄÄÄÄ>   della tastiera TSMC01³
+       ³                       ÚÄÄÄÄÄÄÄÄÄÄÄÄ¿                      ³
+       ³                       ³            ³                      ³
+       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ 
+                                    -- 4 --
+
+
+
+                              M E N U    X P R E S    
+
+
+
+       
+     Per poter entrare nell'ambiente XPRES Š necessario entrare nella
+directory C:\XPRES e quindi digitare :
+       
+                     XPRES NOMEFILE <invio>
+          
+     Dove NOMEFILE, che non pu• essere omesso, Š il nome del programma
+utente che pu• essere vuoto oppure composto di macroistruzioni (vedi
+capitolo FILE .CMD ). Si consiglia, per chi non ha familiarit  con
+programmi scritti in Xpres di utilizzare come NOMEFILE il file ESEMPIO
+fornito con il pacchetto. In risposta comparir… il menu principale del
+compilatore XPRES che riporta, in alto a sinistra, anche il numero di
+versione.
+
+     Le funzioni selezionabili in tale menu sono : 
+
+
+
+     <F1> : Apertura finestra di aiuto sull'uso dei comandi dell'editor  
+            di base. 
+     <F2> : Memorizza programma utente nella directory usata. 
+     <F3> : Non attivo (in questo menu)
+     <F4> : Compila il programma utente creando NOMEFILE.NLA e           
+            NOMEFILE.CML. 
+     <F5> : Attiva il menu di comunicazione diretta con il sistema       
+            MPP14-01. 
+     <F6> : Compila e  trasmette via RS-232 il programma compilato al 
+            sistema MPP14-01 identificato.
+     <F7> : Richiama il menu utilit… per uscire momentaneamente al DOS o
+            per ottenere un aiuto sull'uso delle macroistruzioni. 
+     <F8> : Richiama un editor scelto dall'utente nella fase di setup    
+            (vedi <F10>)
+     <F9> : Visualizza in una finestra nella parte destra dello schermo 
+            il file NOMEFILE.NLA se esistente.  
+     <F10>: Opzione di Setup: permette di scegliere la configurazione   
+            di comunicazione (valori di default gi… inseriti), l'editor  
+            alternativo da usare, il sistema collegato, il tipo di       
+            tastiera collegata al sistema e la lingua del menu,          
+            l'aggiunta di un byte di checksum ai messaggi sulla seriale  
+            obbligatorio a partire dalla release di interprete XM141410  
+            (Vedi comando 'de' su manuale XPRESMAC.MAN).
+     ESC  : Esce dal programma XPRES.
+
+                                    -- 5 --
+
+     Le funzioni selezionabili nel menu di comunicazione diretta attivato
+dal tasto <F5> sono : 
+
+
+
+     <F1>      : Apertura finestra di aiuto sull'uso dei comandi attivi.
+     <F2>      : Cancellazione dello schermo.
+     <F3>      : Apre con azzeramento/chiude il file XPRES.NCO.
+     <F4>      : Comando PE.
+     <F5>      : Comando ES 0.
+     <F6>      : Comando AZR.
+     <F7>      : Comando TR.
+     <F8>      : Comando VIT.
+     <F9>      : Visualizza in una finestra nella parte destra dello 
+                 schermo il file NOMEFILE.NLA se esistente.
+     <F10>     : Comando SM.
+     <ALT> <X> : Torna al menu principale.
+
+                                    -- 6 --
+
+
+
+                             F I L E S   X P R E S
+
+
+
+
+     Il programma sorgente NOMEFILE viene gestito da XPRES.EXE come file
+con estensione .CMD. Nel men— principale da NOMEFILE.CMD, tramite la
+compilazione <F4>, vengono ricavati due files di utilit…: NOMEFILE.NLA e
+NOMEFILE.CML.
+ 
+     NOMEFILE.NLA Š ricavato eliminando i commenti, sostituendo le labels
+con i riferimenti assoluti (numeri di riga), identificando ogni
+macroistruzione con un numero di riga e un numero di identificatore di
+sistema (valore di default 0). In tutti e due i men— Š possibile
+visualizzare NOMEFILE.NLA premendo il tasto funzionale <F9>. Dalla versione
+3.41 di XPRES in poi nel file NOMEFILE.NLA vengono anche visualizzati i
+riferimenti al numero di linea del file NOMEFILE.CMD.
+  
+     NOMEFILE.CML invece non Š altro che NOMEFILE.CMD completato con i
+numeri che saranno attribuiti dall'interprete alle righe di programma.
+NOMEFILE.CML si pu• visualizzare nel menu principale premendo la
+combinazione di tasti <ALT> <F9> .
+ 
+     I files NOMEFILE.NLA e NOMEFILE.CML sono utili nella fase di debug del
+programma applicativo. Nel menu principale da NOMEFILE.CMD, tramite la
+trasmissione <F6>, viene compilato, memorizzato e trasmesso NOMEFILE.NCO
+e cancellati gli eventuali NOMEFILE.NLA e NOMEFILE.CML presenti per evitare
+errori da utilizzo di files di utilit… non aggiornati.
+
+     NOMEFILE.NCO Š una estensione di NOMEFILE.NLA ottenuta aggiungendo il
+carattere <stx>, "" (ASCII 02) in testa alla macro ed il carattere <etx>,
+"" (ASCII 03) in coda alla macro. Questo file, essendo compilato secondo
+le regole sintattiche dell'interprete residente sul sistema MPP14-01 Š il
+file comunicato all' azionamento. La sua sintassi dovr… inoltre essere
+rispettata per comunicare direttamente con il sistema nel menu attivato dal
+tasto <F5>.
+  
+     Gli esempi che seguono indicano le varie forme che un programma
+utente, chiamato "ESEMPIO", assume nei vari files gestiti da XPRES.EXE.
+
+
+ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ ESEMPIO.CMD ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+
+           pe                           Setta fase di esecuzione diretta 
+           nw                           Non appendere programma
+           p                            Setta fase di programmazione
+   *
+   pippo1  fir        1     pippo2      Se l'ingresso 0 e chiuso setta
+           so         2                 l'uscita 1 e torna a rileggere
+           j        pippo1              l'ingresso 0. 
+   *
+   pippo2  ro         2                 Se l'ingresso 0 Š aperto resetta
+           j        pippo1              l'uscita 1 e torna a rileggere.
+   *
+           pe                                                            
+           eppc                         Memorizza in EıPROM
+           es       pippo1              Inizio esecuzione programma
+
+                                    -- 7 --
+
+ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ ESEMPIO.NLA ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+
+  1   :    : 0PE
+  2   :    : 0NW
+  3   :    : 0P
+  5   :  0 : 0FIR 1 3
+  6   :  1 : 0SO 2
+  7   :  2 : 0J 0
+  9   :  3 : 0RO 2
+  10  :  4 : 0J 0
+  12  :    : 0PE
+  13  :    : 0EPPC
+  14  :    : 0ES 0
+
+ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ ESEMPIO.CML ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+
+   :          pe                       Setta fase di esecuzione diretta
+   :          nw                       Non appendere programma
+   :          p                        Setta fase di programmazione
+   :  *
+  0:  pippo1  fir        1    pippo2   Se l'ingresso 0 e chiuso setta
+  1:          so         2             l'uscita 1 e torna a rileggere
+  2:          j       pippo1           l'ingresso 0.
+   :  *
+  3:  pippo2  ro         2             Se l'ingresso 0 Š aperto resetta
+  4:          j       pippo1           l'uscita 1 e torna a rileggere.
+   :  *
+   :          pe
+   :          eppc                     Memorizza in EıPROM
+   :          es      pippo1           Inizio esecuzione programma
+
+
+     Tramite il comando <F6> ESEMPIO.CMD viene compilato come ESEMPIO.NCO
+che Š trasmesso all'azionamento in quanto sintatticamente comprensibile per
+l'interprete MPP14-01.
+
+
+ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ ESEMPIO.NCO ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+
+  0pe
+  0nw
+  0p
+  0fir 1 3
+  0so 2
+  0j 0
+  0ro 2
+  0j 0
+  0es 0
+  0pe
+  0eppc
+  0es 0
+
+ 
+     L'utente se vuole comunicare direttamente con l'interprete <F5> user…
+la sintassi del file .NCO, come risulta dalla descrizione dei comandi
+contenuta nel manuale XPRESMAC.MAN. 
+
+                                    -- 8 --
+
+
+
+                        C O M A N D I   PE , NW , P , EPPC , ES
+
+
+
+
+     L'interprete dei comandi residente nel sistema MPP14-01 pu• trovarsi
+in uno dei 3 stati descritti di seguito :
+
+     (1) Esecuzione immediata dei comandi.
+     (2) Programmazione.
+     (3) Esecuzione del programma memorizzato. 
+
+     Ogni stato se attivato resta attivo fino al prossimo comando di stato
+(pe, p, es).
+  
+     pe           : Attiva lo stato di esecuzione immediata dei comandi.
+     p            : Attiva lo stato di programmazione.
+     es [no riga] : Attiva lo stato di esecuzione del programma dalla    
+                    riga specificata [no riga].
+     nw           : Azzera contatore righe interno all'interprete.
+     eppc         : Memorizza in EıPROM il programma trasmesso. 
+
+     STATO DI ESECUZIONE IMMEDIATA DEI COMANDI (pe):
+
+     In questo stato l'interprete esegue immediatamente le istruzioni
+trasmesse sulla interfaccia seriale.In particolare questo stato consente
+all'utente di eseguire dei trace di riga,settare-resettare uscite, muovere
+motore, tron-troff di verifica programma, ecc.
+
+     COMANDO (nw): 
+ 
+     Questo comando azzera il numero di riga corrente sul programma
+interprete.
+
+     STATO DI PROGRAMMAZIONE (p):
+
+     Nello stato di programmazione l'interprete memorizza le righe di
+programma ricevute sulla interfaccia seriale al numero di riga corrente
+incrementando tale numero.
+
+     I tre comandi pe, nw ,p , generalmente devono sempre essere posti in
+testa di ogni NOMEFILE.CMD.
+         
+     COMANDO (eppc):
+      
+     Il comando 'eppc' trasferisce da RAM non tamponata in EıPROM il
+programma utente ricevuto sulla interfaccia seriale. Questo comando Š
+fondamentale perch‚ il programma trasmesso non Š eseguito se non Š
+residente in EıPROM.
+ 
+     Il comando eppc deve sempre essere posto in coda di ogni NOMEFILE.CMD.
+
+     ESECUZIONE DEL PROGRAMMA MEMORIZZATO (es):
+
+     Il comando es posto in coda a NOMEFILE.CMD fa si che lo interprete
+esegua il programma a partire dal numero riga indicato subito dopo averlo
+memorizzato in EıPROM . Per quanto detto di norma in coda a NOMEFILE.CMD
+vanno poste le tre istruzioni pe, eppc, es [no riga], essendo necessario
+il comando pe per attivare l'esecuzione immediata dei comandi eppc e es.
+
+                                    -- 9 --
+
+
+
+                                V A R I A B I L I
+
+
+
+
+     Gli ARGOMENTI delle macroistruzioni possono essere valori costanti o
+variabili nel corso della esecuzione del programma. L'identificatore di
+variabile Š la stringa alfanumerica "vxxx" dove 000 ó xxx ó= 059. Durante
+l'esecuzione del programma l'interprete sostituisce ogni stringa vxxx con
+il valore attuale.
+
+     RANGE DELLE VARIABILI
+ 
+     Nelle prime versioni dell'interprete XPRES per utilizzare una
+variabile era necessario definirne i limiti positivo e negativo tramite la
+macroistruzione 'tvv'. Nelle ultime versioni questa macro pu• essere
+eventualmente utilizzata per definirne un range di validit… incluso in
+quello assegnato come valore di default che Š : 
+
+               Valore  minimo:  -8388608.
+               Valore massimo:  +8388607.         
+
+     Per assegnare un valore ad una variabile, XPRES mette a disposizione
+la macroistruzione 'sv' il cui uso Š chiarito dal seguente esempio :
+
+
+
+       sv  1  5            : assegna alla variabile 1 il valore 5
+
+       sds 2000 v001 4095  : setta un ritardo di 2 sec nel timer Nø 5
+
+       sv  v001 500        : assegna alla variabile 5 il valore 500
+
+                                    -- 10 --
+
+
+
+                           D I R E T T I V A   V A R
+
+
+
+
+     La direttiva per il compilatore VAR x (x=0 o 1 ) permette di cambiare
+la regola standard di valutazione delle variabili. Se x=0 simboli Vxxx
+saranno valutati come valore associato secondo il criterio standard. Se x=1
+i simboli Vxxx sono valutati come numero di variabile.
+
+     ESEMPIO :
+
+
+
+          sv    2     5     : assegna il valore 5 alla variabile 2
+          var   0
+          sv    v002  100   : attribuisce il valore 100 alla variabile 5
+          var   1
+          sv    v002  100   : attribuisce il valore 100 alla variabile 2
+
+
+
+     N.B. : Per default  x=0. Il controllo Š valido solo per quelle
+macroistruzioni che richiedono un argomento di tipo [Argomento variabile]
+come ad esempio la macroistruzione 'sv' utilizzata nell'esempio riportato
+sopra. Vedi file XPRESMAC.MAN. 
+
+                                    -- 11 --
+
+
+
+                    V A R I A B I L I   S I M B O L I C H E
+
+
+ 
+
+     Il compilatore XPRES consente l'utilizzo di valori identificati da
+variabili simboliche per mezzo della sintassi:
+
+          ==  NOMEVARIABILE  NUMEROVARIABILE  
+
+     Con essa alla variabile simbolica NOMEVARIABILE Š assegnata
+NUMEROVARIABILE. NOMEVARIABILE Š una stringa alfanumerica di massimo di 8
+caratteri, non coincidente con un codice riservato quale un codice di
+macroistruzione o simbolo di una variabile (vxxx) e che deve
+necessariamente iniziare con una lettera. Si veda la direttiva 'VAR' per
+le regole di valutazione di NUMEROVARIABILE.
+
+     Se NUMEROVARIABILE indica una variabile sar… una stringa Vxxx.
+
+ESEMPI: 
+
+
+
+          ==  rampa v30 : La variabile 30 viene chiamata "rampa"
+          ==  passi 100 : Nel programma "passi" sar… valutato = 100
+
+
+
+     NELL'USO DELLE VARIABILI SIMBOLICHE NEI PROPRI PROGRAMMI XPRES NON  
+POSSIBILE :
+
+     ş Utilizzare due o pi— volte la stessa variabile simbolica :
+
+          ==   ciao   v12
+          ==   ciao   v15
+
+     In compilazione XPRES segnalerebbe l'errore "Variabile simbolica gi…
+esistente". 
+
+     ş Identificare con una label una istruzione di assegnazione.
+
+          label  ==  ciao  12
+
+     Poich‚ le assegnazioni non vengono trasformate in istruzioni da
+inviare all' azionamento ma vengono utilizzate solo durante la compilazione
+del programma sorgente tale identificazione in compilazione darebbe origine
+ad un errore di "Comando non riconosciuto".
+
+      opportuno inoltre, anche per una migliore leggibilit… del programma,
+definire tutte le assegnazioni all'inizio dello stesso.
+
+                                    -- 12 --
+
+     Esempio di programma XPRES preceduto da assegnazioni di variabili
+simboliche:
+
+ *
+ **    Inizio assegnazioni
+ *
+      ==   rampa    v025       Assegna a rampa la variabile 25  
+      ==   passi    v038       Assegna a passi la variabile 38
+      ==   encod    v043       Assegna a encod la variabile 43
+ *
+ **    Inizio programma Xpres
+ *
+      pe
+      nw
+      p
+      var  1           ;Cambia il modo di valutazione delle 
+ *                     ;variabili
+ *                     ;nelle macroistruzioni 'tvv', 'sv' e 'avc'.
+ lab0 tvv  rampa 1 500 ;la variabile 25 pu• assumere i valori:
+ *                     ;1ö500.
+      tvv  passi 5 700 ;la variabile 38 pu• assumere i valori:
+ *                     ;5ö700.
+      tvv  encod 1 80  ;la variabile 43 pu• assumere i valori: 1ö80. 
+      sv   rampa 250   ;setta variabile 25 al valore 250.
+      avc  passi 10  rampa ;setta nella variabile 25 il valore
+ *                         ;contenuto nella variabile 38 incrementato 
+ *                         ;di 10.
+ 
+                                    -- 13 --
+
+
+
+ C O M U N I C A Z I O N E   D I R E T T A   C O N   L'I N T E R P R E T E
+
+
+
+
+     Di seguito riportiamo il significato dei simboli che verranno
+utilizzati:
+
+
+
+     <stx>    : Start text.  (codice ASCII 02) (simbolo grafico  )
+     <id>     : Identificatore di sistema.  (0...9)
+     <sp>     : 1 spazio.    (Codice ASCII 20H)
+     <cks>    : Carattere di checksum della stringa (spiegato            
+                successivamente).
+     <etx>    : End text.    (codice ASCII 03) (simbolo grafico  )
+     <ins>    : Tasto di inserimento (INS).
+     <invio>  : Tasto di invio (ENTER) (Codice ASCII 13)
+     <tab>    : Tasto di tabulazione (TAB).
+     <sep>    : Nø di spazi o tasto di tabulazione.
+     [arg1]   : 1ø argomento.
+     [arg2]   : 2ø argomento.
+     [arg3]   : 3ø argomento.
+     *        : Commento.
+
+     STRINGHE XPRES:
+
+
+
+     Le stringhe gestite dall'interprete xpres hanno la seguente sintassi:
+
+     <stx><id>[MESSAGGIO]<ext>
+
+     [MESSAGGIO] Š il messaggio da/verso l'interprete.
+
+     Dalla release XM141410 in poi dell'interprete le stringhe devono avere
+un carattere di checksum prima di <etx>, quindi la sintassi sar :
+
+     <stx><id>[MESSAGGIO]<sp><cks><ext>
+
+     Per poter comunicare con l'interprete sar… necessario abilitare dal
+setup del compilatore Xpres, ottenuto premendo il tasto F10 da editor, la
+gestione del checksum, altrimenti non si potr… comunicare con il sistema.
+La versione di interprete Š ottenibile inviando il comando
+<stx><id>de<ext>, o <stx><id><de><sp><cks><ext> se Š richiesto il checksum,
+dalla finestra di comunicazione diretta con l'interprete.
+                                    -- 14 --
+Checksum:
+
+Il checksum Š composto da quattro bytes: i primi due si riferiscono al
+numero di caratteri che compongono la stringa compreso l'ultimo spazio
+mentre gli ultimi due bytes che compongono il checksum sono la risultante
+EXOR dei caratteri della striga includendo sempre l'ultimo spazio.
+
+                                    0mvs+ 500 0B44
+                                    ³³³³³³³³³³³³³³³
+                                    ³³³³³³³³³³³ÀÁÁÁÄÄÄÄÄ CHECKSUM
+          exor  02ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³³³³³³³³
+          exor  30ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³³³³³³³
+          exor  6DÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³³³³³³
+          exor  76ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³³³³³
+          exor  73ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³³³³
+          exor  2BÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³³³
+          exor  20ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³³
+          exor  35ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³³
+          exor  30ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³³
+          exor  30ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ³
+          exor  20ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+             ÄÄÄÄÄÄÄ
+                44                 
+
+La comunicazione diretta con l'interprete viene attivata tramite il tasto
+funzionale <F5> nel menu principale di XPRES.                     
+
+     La sintassi dei comandi disponibili in tale stato Š quella descritta
+nel file ESEMPIO.NCO. In particolare in questo stato Š possibile
+settare/resettare delle uscite, diagnosticare la esecuzione di un
+programma, visualizzare le risposte dell'azionamento a diversi stimoli,
+ecc. All'interno del menu di comunicazione Š inoltre possibile con il tasto
+funzionale <F3> aprire il file XPRES.NCO, nel quale verranno memorizzate
+tutte le stringhe provenienti dal sistema MPP14-01 attraverso l'interfaccia
+seriale. Il file rimane aperto e tale funzione Š attiva finch‚ non si preme
+una seconda volta il tasto funzionale <F3>. XPRES.NCO Š un file ASCII e pu•
+essere visualizzato con un qualsiasi text-editor. Nel menu di comunicazione
+diretta Š anche possibile visualizzare il file applicativo NOMEFILE.NLA
+trasmesso all'azionamento premendo il tasto funzionale <F9>. Per
+trasmettere una stringa di comando secondo la sintassi del'interprete XPRES
+si pu•: aprirla con <stx> seguito dall' identificatore scelto per il
+sistema collegato premendo il tasto <ins> , digitare il comando desiderato
+in minuscolo e completare la stringa con <etx>, <sp><cks><etx> se
+richiesto, o trasmettere il comando all' azionamento premendo il solo tasto
+di <invio> il quale includer… il carattere di checksum se selezionata
+l'opzione dal setup di Xpres. Il comando sar… eseguito immediatamente se
+l'azionamento si trova nello stato di esecuzione immediata attivata
+premendo il tasto di funzione <F4> oppure digitando in sequenza
+<ins>pe<invio>. Per le correzioni delle stringhe di comando in scrittura
+non sono disponibili tasti (tipo Back Space); un comando errato deve essere
+riscritto interamente. In risposta al comando inviato l'interprete
+risponder… con l'eco della stringa inviatagli ed eseguir… quindi il
+comando.
+
+                                    -- 15 --
+
+     Se dopo aver inviato una stringa il sistema non risponde con l'eco
+della stessa o non esegue il comando inviatogli le cause possono essere le
+seguenti:
+
+
+ 
+       Parametri di trasmissione errati. Controllare che la porta        
+       seriale e i valori di baud rate e data bits impostati nel setup   
+       di Xpres siano corretti.
+ 
+       Selezione di checksum errata. Controllare che la selezione di     
+       checksum impostata nel setup di Xpres sia corretta. Il checksum Š 
+       necessario solo dalla versione XM141410 in poi dell' interprete.
+
+       Il sistema non Š collegato o non Š alimentato.
+ 
+       Problemi hardware di trasmissione. Assicurarsi che la seriale del 
+       PC sia perfettamente funzionante e non siano installati gestori   
+       di seriale, come ad esempio i drivers per mouse. 
+      
+
+                                    -- 16 --
+
+
+
+              I D E N T I F I C A T O R E   D I   S I S T E M A
+
+
+  
+
+     Ad ogni sistema MPP14-01 Š associato un Nø di identificatore compreso
+tra 0 e 9. In questo modo Š possibile comunicare con un dato azionamento
+Per default ogni sistema Š identificato dal numero 0. Un comando preceduto
+dall'identificatore 0 viene riconosciuto da tutti gli azionamenti che lo
+ricevono anche se aventi un numero di identificatore diverso. Il nø di
+identificatore Š posto tra lo <stx> e il codice della macro
+dall'azionamento al PC.
+
+
+      PROCEDURA 1: 
+      SETTARE L'IDENTIFICATORE DI SISTEMA DIRETTAMENTE IN MODO TERMINALE:
+
+
+
+        Collegarsi tramite RS-232 o RS-485 al sistema MPP14-01 a cui si  
+        vuole cambiare l'identificatore.
+
+        Entrare in modo terminale premendo il tasto <F5> .
+  
+        Assegnare il valore 0 all' identificatore associato al tasto     
+        <F4> disponibile nella finestra di comunicazione diretta o al    
+        tasto <ins> utilizzando il tasto <tab>. 
+ 
+        Porre il sistema in stato di esecuzione immediata premendo il    
+        tasto <F4> o inviando il comando <ins> pe <invio>.
+ 
+        Inviare il comando <ins>is<sp>[arg1]<invio>, dove [arg1] Š il    
+        nuovo identificatore di sistema.
+  
+        Assegnare il valore [arg1] all' identificatore associato al      
+        tasto <F4> o al tasto <ins> riutilizzando il tasto <tab>. 
+  
+        Verificare la correttezza della assegnazione con il comando
+        <ins>vd<sp>1<sp>1<invio> (vedi istruzione 'vd' su XPRESMAC.MAN).
+
+     N.B. L'assegnazione di identificatore nel men— <F5> Š valida sino alla
+uscita da XPRES per mezzo del tasto ESC. Al reingresso in XPRES
+l'identificatore di sistema viene posto a 0.
+  
+     Per cambiare l'identificatore associato dal compilatore XPRES alle
+macro di NOMEFILE.NCO attraverso la compilazione Š disponibile
+l'istruzione:
+
+               !<sep>[Id.Sistema]
+
+     che deve essere  utilizzata in NOMEFILE.CMD come prima delle
+istruzioni identificate da [Id.Sistema]. Nello stesso programma possono
+essere utilizzate pi— istruzioni di cambio identificatore.
+
+                                    -- 17 --
+
+     ESEMPIO:
+
+
+                      
+ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ PROGRAMMA NOMEFILE.CMD ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+                                                   
+
+
+          !          0            Pone l'identificatore del programma
+  *                               a 0. Il programma viene ricevuto
+  *                               da tutti i sistemi MPP14-01 collegati
+          pe                      Setta fase di esecuzione diretta
+          nw                      Non appendere programma
+          p                       Setta fase di programmazione
+  *
+  pippo1  fir        1    pippo2  Se l'ingresso 0 e chiuso setta
+          so         2            l'uscita 1 e torna a rileggere
+          j       pippo1          l'ingresso 0. 
+  *
+  pippo2  ro         2            Se l'ingresso 0 Š aperto resetta
+          j       pippo1          l'uscita 1 e torna a rileggere.
+  *
+          pe                      riattiva stato di esecuzione immediata 
+  *
+          !          2            Poni identificatore = 2
+  *
+          so         4            Il sistema 2 accende l'uscita 2.
+          !          0            Riporta l'identificatore a 0 per
+  *                               poter comunicare con tutti i        
+  *                               sistemi collegati.
+          eppc                    Memorizza in EıPROM
+          es      pippo1          Inizio esecuzione programma
+
+
+                                    -- 18 --
+                            
+
+      PROCEDURA 2: 
+      SETTARE L'IDENTIFICATORE DI SISTEMA DAL PROGRAMMA APPLICATIVO TRAMITE
+      LA LETTURA DEI DIP.
+
+      ESEMPIO:
+
+     Avendo ad esempio un rack doppio composto da due sistemi MPP14-01 e due
+I/O selezionare l'identificatore di sistema ed il programmma applicativo di
+ognuna tramite le combinazioni del dip posto sul sistema MPP14-01:
+
+        !       0                       Identificatore macro in trasmissione
+*                                       (il programma viene ricevuto da
+*                                       entrambi i sistemi)
+        pe                              Setta fase di esecuzione diretta
+        nw                              Non appendere programma
+        p                               Setta fase di programmazione
+
+lab0    dip     59                      Setta configurazione dip in var 59
+        ivu     59      1       sis1    Se var 59=1 allora prog. 1
+        ivu     59      2       sis1    Se var 59=2 allora prog. 2
+        j       lab0
+
+*----------------- sistema 1 -------------------*
+
+sis1    is      1                       Setta identificatore =1
+        ro      65535                   Resetta tutte le uscite
+        so      2                       Setta l'uscita 1
+sis1a   j       sis1a                   Resta in loop
+
+*----------------- sistema 2 -------------------*
+
+sis1    is      2                       Setta identificatore =2
+        ro      65535                   Resetta tutte le uscite
+        so      4                       Setta l'uscita 2
+sis2a   j       sis2a                   Resta in loop
+
+*---------------- Memorizza in EEPROM ----------*
+
+        pe                              Setta fase di esecuzione diretta
+        eppc                            Memorizza programma in eeprom
+        es      lab0                    Esegui programma subito dopo la
+*                                       trasmissione
+
+     Entrambi i programmi applicativi (programmma sistema 1 e programma
+sistema 2) sono inclusi nello stesso file e vengono trasmessi e memorizzati
+in entrambi i sistemi MPP14-01 (ogni macro Š trasmessa con l'identificatore
+0, come definito dalla pseudo macro ! 0). Quindi ad ogni esecuzione di
+programma ogni sistema MPP14-01 si auto-identificher… e selezioner… il
+proprio programma applicativo tramite la lettura della combinazione dei dip.
+
+
+                                    -- 19 --
+
+
+      PROCEDURA 2: 
+      SETTARE L'IDENTIFICATORE DI SISTEMA DAL PROGRAMMA APPLICATIVO TRAMITE
+      LA LETTURA DI UN INGRESSO.
+
+      ESEMPIO:
+
+     Avendo un rack doppio composto da due sistemi MPP14-01 e due I/O,
+selezionare l'identificatore di sistema e il programma applicativo di
+ognuno tramite l'ingresso 7.
+
+
+        !       0
+        pe
+        nw
+        p
+
+lab0    fis     128     sis2            Se ing. 7 chiuso allora prog. 1
+
+*------------------ Sistema 1 ----------------*
+
+sis1    is      1                       Setta identificatore =1
+        ro      65535                   Resetta tutte le uscite
+        so      2                       Setta l'uscita 1
+sis1a   j       sis1a                   Resta in loop
+
+*------------------ Sistema 1 ----------------*
+
+sis2    is      2                       Setta identificatore =2
+        ro      65535                   Resetta tutte le uscite
+        so      4                       Setta l'uscita 2
+sis2a   j       sis2a                   Resta in loop
+
+*-------- Memorizzare programma in EEPROM -------*
+
+        pe
+        eppc
+        es      lab0
+
+
+                                    -- 20 --
+
+
+
+                     I N G R E S S I - U S C I T E   D E C I M A L I
+
+
+
+
+     Ogni scheda di I/O del sistema MPP14-01 rende disponibili 16 ingressi
+e 16 uscite. Altri 4 ingressi, di seguito definiti "veloci" perch‚
+utilizzabili in alcune macroistruzioni per applicazioni particolari sono
+inoltre disponibili direttamente sulla CPU. Sono disponibili anche 2 uscite 
+veloci. In totale gli ingressi disponibili con una scheda di I/O sono 20.
+Nel programma NOMEFILE.CMD il riferimento a ingressi ed uscite deve essere
+fatto sotto forma di numero decimale, secondo la tabella seguente:
+
+
+
+          ÚÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+          ³  INGRESSI  ³  USCITE   ³     VALORE DECIMALE   ³
+          ÃÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  in0       ³  out 0    ³            1          ³        
+          ³  in1       ³  out 1    ³            2          ³        
+          ³  in2       ³  out 2    ³            4          ³        
+          ³  in3       ³  out 3    ³            8          ³        
+          ³  in4       ³  out 4    ³           16          ³       
+          ³  in5       ³  out 5    ³           32          ³       
+          ³  in6       ³  out 6    ³           64          ³       
+          ³  in7       ³  out 7    ³          128          ³     
+          ³  in8       ³  out 8    ³          256          ³     
+          ³  in9       ³  out 9    ³          512          ³     
+          ³  in10      ³  out10    ³         1024          ³     
+          ³  in11      ³  out11    ³         2048          ³     
+          ³  in12      ³  out12    ³         4096          ³     
+          ³  in13      ³  out13    ³         8192          ³     
+          ³  in14      ³  out14    ³        16384          ³     
+          ³  in15      ³  out15    ³        32768          ³     
+          ÀÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+          ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+          ³    INGRESSI VELOCI    ³     VALORE DECIMALE   ³
+          ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+          ³  in16                 ³            1          ³
+          ³  in17                 ³            2          ³
+          ³  in18                 ³            4          ³
+          ³  in19                 ³            8          ³
+          ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+                                                   
+     Ad esempio :
+                 
+          so  1   : chiude out0 a 24 Vcc
+
+          so  515 : chiude out0 (1) + out2 (2) + out9 (512) a 24 Vcc
+
+                                    -- 21 --
+
+
+
+                      M E N U   D I   E D I T O R   X P R E S
+
+
+
+
+     Il file contenente il programma sorgente .CMD pu• essere scritto nel
+men— principale di editor di XPRES o con un qualsiasi text editor o word
+processor a patto che il file generato sia in formato ASCII.  importante
+ricordarsi che se si scrive il programma con un editor esterno ad Xpres Š
+necessario specificare l'estensione .CMD del file sorgente perch‚ lo si
+possa gestire da Xpres. Indipendentemente dalla lunghezza del file il
+numero massimo di macroistruzioni gestibili Š 1000. E 1000 sono anche il
+numero massimo di label che possono essere anteposte ad ogni
+macroistruzione. Il numero massimo di variabili simboliche (Vedi a pagina
+12) Š 150. Oltre ai tasti di funzione gi… descritti, in questo men— sono
+disponibili i seguenti comandi ( vedi HELP ):     
+
+     
+
+
+
+     ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+     ³ Tasto        ³  Funzione                                     ³
+     ÆÍÍÍÍÍÍÍÍÍÍÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍµ
+     ³              ³                                               ³
+     ³ <Home>       ³  Inizio riga.                                 ³
+     ³              ³                                               ³
+     ³ <Home><Home> ³  Inizio testo.                                ³
+     ³              ³                                               ³
+     ³ <End>        ³  Fine riga.                                   ³
+     ³              ³                                               ³
+     ³ <End><End>   ³  Fine testo.                                  ³
+     ³              ³                                               ³
+     ³ <Alt> <D>    ³  Cancella riga.                               ³
+     ³              ³                                               ³
+     ³ <Alt> <I>    ³  Lunghezza del file (versione 3.46 in poi).   ³
+     ³              ³                                               ³
+     ³ <Alt> <G>    ³  Vai a linea.       (versione 3.45 in poi).   ³
+     ³              ³                                               ³
+     ³ <Alt> <F9>   ³  Vedi file .CML.                              ³
+     ³              ³                                               ³
+     ³ <Esc>        ³  Termina la sessione di lavoro in Xpres.      ³
+     ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+                                    -- 22 --
+
+
+
+                                F I L E   . C M D
+ 
+
+
+
+     Il programma NOMEFILE dell'utente viene gestito da XPRES.EXE come file
+con estensione .CMD, ed Š composto da :
+
+
+
+       VARIABILI SIMBOLICHE assegnati a dei numeri o a variabili (Vxxx).
+ 
+       LABELS di tipo alfanumerico (max 8 caratteri di cui il primo
+       alfanumerico).   
+  
+       CODICI DI MACROISTRUZIONI che possono avere da un minimo di 0 ad  
+       un massimo di 3 argomenti. 
+
+       ARGOMENTI che possono essere delle costanti, delle variabili      
+       (Vxxx), labels o variabili simboliche. 
+
+       COMMENTI se preceduti dal simbolo * o se posti alla destra degli  
+       argomenti delle macroistruzioni.
+
+       SEPARATORI che possono essere costituiti da uno o pi£ spazi o     
+       tabulazioni.
+
+
+   
+     Quale esempio di file .CMD nella pagina seguente Š riportato un
+programma di test utile per capire l'impostazione di base dei programmi
+dell'azionamento, in quanto riporta la definizione dei parametri di
+corrente e rampa del motore.
+
+                                    -- 23 --
+
+
+
+                 P R O G R A M M I   D I   E S E M P I O 
+
+
+
+
+     ESEMPI PER FACILITARE L'APPRENDIMENTO DEL LINGUAGGIO XPRES.  
+
+     Nel pacchetto XPRES sono presenti i seguenti programmi di esempio:
+ 
+
+
+     1)  mov14-01.cmd  => esempio settaggio parametri motore
+     2)  var14-01.cmd  => esempio uso variabili
+     3)  var14-02.cmd  => esempio uso variabili simboliche
+     4)  int14-01.cmd  => esempio uso interrupt ingressi
+     5)  enc14-01.cmd  => esempio uso encoder
+     6)  enc14-02.cmd  => esempio uso encoder
+     7)  tas14-01.cmd  => esempio uso tastiera TSMC01
+     8)  spi14-01.cmd  => esempio uso SPI con 1 scheda di I/O
+     9)  spi14-02.cmd  => esempio uso SPI con 2 schede di I/O
+    10)  spi14-03.cmd  => esempio di partenza sincronizzata di due motori
+
+
+     COME ESEGUIRE I PROGRAMMI DI ESEMPIO:
+
+     Dopo aver installato il pacchetto XPRES i programmi di esempio sono
+memorizzati nella subdirectory ESEMPI. Per eseguirli Š sufficiente
+digitare:
+     
+     XPRES ESEMPI/<nome file>.CMD
+
+     Dove <nome file> Š uno dei sei esempi riportati sopra.
+
+     N.B. Nei programmi di esempio in cui si esegue un movimento motore
+(esempi: 1,4,5,6,7,8,9,10) la corrente di fase del motore Š stata posta
+pari a 5 Ampere. Nel caso si stia utilizzando un motore che accetta
+correnti di fase diverse Š opportuno cambiare tale valore.
+                                    -- 24 --
+
+     MOVIMENTO MOTORE  :               
+
+     Quando si intende eseguire un movimento motore Š necessario inserire
+i parametri motore prima che avvenga il movimento stesso. Questi parametri
+dipendono principalmente dal tipo di motore utilizzato e dal movimento che
+si intende compiere oltre che dal carico applicato sull'albero motore. I
+parametri motore sono i seguenti:
+
+  - a) corrente di fase             vedi macro cf;cm;cr
+  - b) angolo di passo              vedi macro pa
+  - c) rampa                        lineare     (fb;fm;np;tdr;pd;sd)
+                                    cubica      (fb;fm;tdr;pd;sd) 
+                                    con flesso  (fb;fm;tdr;pd;sd)
+
+     Normalmente tutti questi parametri vengono definiti in testa al
+programma sorgente in linguaggio XPRES .cmd.      
+
+     a) La corrente di fase dipende dalle specifiche del motore utilizzato;
+in un programma e' possibile definire la sola macro "cf" oppure utilizzare
+le macro "cm" e "cr". La macro "cf" indica la corrente massima del motore
+(motore in movimento) mentre la corrente minima (motore fermo) viene
+automaticamente posta uguale al 60% della massima. Le macro "cm" e "cr"
+consentono invece di settare separatamente la corrente massima e minima.
+
+     NB: Quando il motore Š fermo la corrente viene automaticamente ridotta
+alla corrente minima, allo stesso modo si setta alla corrente massima
+quando esegue un movimento.
+
+     b) L'angolo di passo del motore indica il numero di passi in cui il
+motore esegue un giro completo; a passo pieno i passi al giro sono 200,
+questi possono essere moltiplicati sino a raggiungere 1/128 di passo, pari
+a 25600 passi giro. Vedi macro "pa" sul manuale XPRESMAC.MAN. Il micro
+stepping oltre a fornire una migliore precisione di movimento consente di
+risolvere i problemi di risonza che si verificano a particolari frequenze
+e che sono molto fastidiosi sopratutto a passo pieno e 1/2 passo.
+                                    -- 25 --
+
+     c) La rampa indica il tempo o i passi necessari al motore per andare
+dalla frequenza minima alla frequenza massima di rampa. L' interpete XPRES
+permette attualmente di calcolare tre diversi tipi di rampa:
+
+     1) rampa lineare (vedi macro 'crl')
+     2) rampa con flesso (vedi macro 'crf')
+     3) rampa cubica (vedi macro 'crc')
+
+     Le tre rampe sopra citate per essere calcolate necessitano di tre   
+parametri:
+
+     1) Frequenza di base. E' la frequenza da cui parte il motore.
+     2) Frequenza massima. E' la frequenza massima a cui il motore
+        potr… muoversi
+     3) Tempo durata rampa. E' il tempo che il motore impiega a
+        passare dalla frequenza di base alla frequenza massima (nel
+        calcolo della rampa lineare pu• essere sostituito dal numero
+        passi rampa).
+
+     Questi parametri variano a seconda del movimento da eseguire oltre che 
+dal carico applicato sull' albero motore. Vediamo  quali sono le "regole
+logiche" per poter generare una rampa il pi£ possibile ottimizzata per il
+movimento che il motore dovr… fare. Un aiuto all'utente viene fornito
+dall'utility software RAMPE.EXE disponibile nel pacchetto XPRES. Questo
+programma Š posto nella subdirectory UTILITY. 
+     La frequenza di base (fb) dipende dall'angolo di passo a cui ci si
+muove e pu• variare da 120 a 4000 Hz. Per esempio a passo pieno si potrebbe
+inserire 400 Hz e successivamente alzare od abbassare tale valore a seconda
+del comportamento del motore sotto carico.
+     La frequenza massima (fm) dipende anch'essa dall'angolo di passo e pu•
+variare da 120 a 640000 Hz. Tale valore deve essere sempre maggiore o
+uguale alla frequenza di base. Per esempio a passo pieno si potrebbe
+inserire un valore sino 5000 Hz che corrisponde a circa 1500 giri/minuto
+dove il motore esprime la coppia massima. Naturalmente tale valore pu•
+essere aumentato fine a raggiungere la massima velocit… che il motore
+utilizzato pu• raggiungere con il carico presente.
+     Il numero di passi rampa (np) deve essere come minimo uguale alla 
+met… dei passi di spostamento se si vuole che il motore raggiunga la
+velocit… massima di rampa; naturalmente un valore pi— basso renderebbe pi—
+veloce lo spostamento in quanto la velocit… massima viene raggiunta in meno
+tempo e mantenuta per pi— passi di spostamento.
+     Il tempo durata rampa (tdr) deve essere al massimo uguale alla met…
+del tempo totale di spostamento sempre se si vuole che il motore raggiunga
+la velocit… massima di rampa.
+                                    -- 26 --
+
+     A volte Š comunque necessario aumentare il tempo o passi di rampa per
+rendere meno gravose le sollecitazioni meccaniche sulla macchina. Se si
+decide di aumentare la risoluzione di passo (passare da 200 passi a giro
+a 400) Š necessario aumentare proporzionalmente i valori di rampa (in
+questo caso raddoppiarli). Sono inoltre a disposizione altri due parametri
+che permettono di modificare il profilo di velocit… della rampa calcolata:
+
+     1) La pendenza (pd)
+     2) Il rapporto salita \ discesa (sd)
+     
+     Il primo parametro permette di moltiplicare per x volte i passi di
+salita e di discesa della rampa riducendo di x volte la pendenza della
+rampa stessa sia in salita che in discesa; il secondo parametro permette
+di moltiplicare per x volte solo i passi di salita lasciando invariato il
+profilo della rampa di discesa. Esempio:
+     
+        RAMPA 1           RAMPA 2
+
+        pa   200   0      pa    200   0
+        fb   400          fb    400
+        fm   5000  0      fm    5000  0
+        np   1000         np    500
+        crl               crl
+        pd   1            pd    2
+
+     Queste due rampe sono simili in quanto hanno lo stesso profilo di
+velocit… ma differiscono essenzialmente per come il motore raggiunge la
+velocit… massima infatti il primo avr… 1000 "cambi di velocit…" contro i
+500 del secondo. Si sconsiglia quindi l'utilizzo della macro 'pd' quando
+si ha un numero di passi rampa molto piccolo mentre invece tale soluzione
+Š consigliata nel caso di un numero passi rampa molto alto o il calcolo
+rampa viene bloccato per mancanza di memoria disponibile 'mi 521'. Il
+seguente esempio indica i parametri da settare per poter eseguire un
+movimento motore. In questo esempio e' settata una corrente di fase motore
+pari a 5 Ampere, prima di trasmettere il programma inserire la corrente di
+fase del motore in questione .
+
+
+
+     Esempio 1: mov-01.cmd
+
+      Questo programma attende che l'ingresso 1 sia chiuso e quando lo
+trova chiuso :
+
+       Esegue un movimento in avanti di 800 passi alla frequenza di 400 Hz; 
+       Setta Out0 ;                                                      
+       Attende un ritardo di 500 ms ;                                    
+       Resetta Out0 ;                                                    
+       Esegue un movimento indietro di 1200 passi alla frequenza di 1000
+Hz;
+       Setta Out1 ;                                                      
+       Attende un ritardo di 500 ms ;                                    
+       Resetta Out1 ;                                                    
+       Torna a testare ingresso In1.
+                                                               -- 27 --
+    
+     UTILIZZO DELLE VARABILI   
+
+ 
+     Generalmente quando si usano delle variabili xpres Š utile definirne
+i range di utilizzo. In questo modo Š possibile filtrare i dati che si
+inseririscono impedendo la memorizzazione di un valore esterno al range
+definito. Se tale range non viene definito la variabile potr… assumere i
+valori da -8388608 a 8388607. La macroistruzione 'tvv' Š utilizzata per
+definire i range di una variabile (vedi manuale delle macroistruzioni
+XPRESMAC.MAN).
+
+       tvv     0       0       100000  Var0 => Min=0     Max=100000
+       tvv     1       -1000   1000    Var1 => Min=-1000 Max=1000
+       tvv     2       0       5       Var2 => Min=0     Max=5
+       tvv     3       0       1       Var3 => Min=0     Max=1
+       tvv     4       0       20      Var4 => Min=0     Max=20
+       tvv     5       0       25      Var5 => Min=0     Max=25
+
+     Per inserire dei valori in una variabile si opera nel seguente modo
+utilizzando la macroistruzione 'sv':
+
+       sv      0       100             Setta in Var0 il valore 100
+       sv      2       3               Setta in Var2 il valore 3
+       sv      1       v000            Setta in Var1 il valore di Var0 
+       *                               quindi in Var1 <= 100
+
+     Per inserire nella variabile puntata dalla variabile 2 il valore 5:
+
+       sv      v002    5               Essendo settato nella Var2 il 
+       *                               valore 3 allora Var3 <= 5
+
+     Per inserire nella variabile puntata dalla variabile 3 il valore della
+variabile 4:
+
+       sv      v003    v004            Essendo Var3 <= 5 e Var4 <= 12
+       *                               allore Var5 <= 12
+ 
+     Le situazioni sopra citate sono valide in tutte quelle macro dove Š
+richiesto un [Argomento variabile] con settata la direttiva 'var' a zero
+(vedi 'direttiva var' a pag.11 ). Verranno ora mostrati due esempi di
+utilizzo delle variabili:
+ 
+     Esempio 2: var-01.cmd
+
+     Il programma 'var-01.cmd' utilizza le variabili per incrementare o
+decrementare  il ritardo con cui le uscite scelte di volta in volta tramite
+variabile vengono settate o resettate. Caricando nell'azionamento questo
+programma si vedranno le uscite accendersi una dopo l'altra a partire
+dall'uscita 0 sino alla 15 e successivamente spegnersi dalla 15 alla 0. Il
+ritardo tra una accensione e l'altra prima cresce sino a 250 mS poi
+decresce sino a 80 mS.
+
+     Esempio 3: var-02.cmd
+
+     Il programma 'var-02.cmd' mostra come usare le variabili XPRES e le
+variabili simboliche con la direttiva var posta a 1; vedere 'direttiva var'
+e 'variabili simboliche' su questo manuale.
+                                    -- 28 --
+
+     UTILIZZO DEGLI INTERRUPT SU INGRESSI   
+
+     Il software XPRES consente di abilitare degli interrupt sugli
+ingressi, i quali si suddividono in 2 tipi : 
+
+        Interrupt a livello
+        Interrupt su fronte
+
+     L'interrupt a livello (macro 'tin') Š possibile abilitarlo su ognuno
+dei 15 ingressi standard, a differenza dell'interrupt a fronte (macro 'in')
+il quale pu• essere abilitato solo sugli ingressi veloci (In6;In17;In18).
+Quando si abilita un interrupt si indica la riga al quale salta
+l'esecuzione del programma quando si manifesta l'interrupt  e la condizione
+di ritorno dallo stesso (Š possibile ritornare alla riga di programma
+interrotta oppure saltare ad una altra riga). Per quanto riguarda gli
+interrupt a fronte Š possibile impostare il tempo che deve almeno durare
+un fronte per essere considerato valido questo consente di scartare gli
+eventuali disturbi dovuti all' instabilit… dell'ingresso in questione
+(macro 'di'). L'esempio seguente illustra un modo di utilizzo degli
+interrupt ingressi (vedi macro 'tin';'tnt';'rtt';'in';'iin';'rit';'di' sul
+manuale delle macroistruzioni XPRESMAC.MAN).
+
+     Esempio 4: int-01.cmd
+
+     Caricando questo programma nell'azionamento si vedr… il motore che si
+muove ad una certa frequenza per 100 giri dopodichŠ si ferma per 1 secondo
+e poi riparte; chiudendo uno degli ingressi tra In0 e In15 si vedr…
+l'uscita corrispondente che rimane settata finche l'ingresso non viene
+riaperto; chiudendo uno degli ingressi In16;In17:In18 oltre al settaggio
+dell'uscita si vedr… cambiare la velocit… del motore finchŠ l'ingresso non
+viene riaperto.
+                                    -- 29 --
+
+     UTILIZZO DEL CONTATORE ENCODER   
+
+     Il contatore encoder viene principalmente utilizzato per controllare
+la posizione assoluta del motore. Le macro di movimento che eseguono
+automaticamente questo tipo di controllo sono le seguenti: 'fs+','fs-',
+'ep+','ep-','eq'. Il controllo tra motore ed encoder eseguito da queste
+macro si pu• suddividere in 2 fasi:
+
+       La prima fase consiste in un controllo dinamico tra motore ed
+encoder durante il movimento cioŠ se durante un movimento lo sfasamento tra
+la quota motore e la quota encoder supera lo sfasamento massimo specificato
+tramite la macro 'sf' avviene un blocco immediato motore con relativa
+segnalazione.
+
+       La seconda fase consiste in un eventuale recupero di passi a fine
+movimento cioŠ se a fine movimento tra la quota teorica motore e la quota
+reale encoder c'Š uno sfasamento minore dello sfasamento massimo, questo
+viene recuperato.
+
+     La seconda fase pu• essere ottenuta manualmente facendo un movimento
+standard tramite una delle macro ('mv+';'mv-';'mvs+';'mvs-'; 'mvc+';'mvc-';
+'mf+';'mf-'), controllando a fine movimento lo sfasamento tra la quota
+motore e la quota encoder leggendo le due quote e confrontandole, decidendo
+poi di fare un eventuale recupero di posizione. Verranno ora mostrati due
+esempi di utilizzo del contatore encoder per il controllo della posizione
+del motore:
+                                    -- 30 --
+ 
+     Esempio 5: enc-01.cmd
+
+     Questo programma esegue i diversi movimenti encoder controllando il
+massimo sfasamento ed eventualmente recupera la posizione a fine movimento.
+Inoltre questo programma consente, chiudendo l'ingresso 0, di testare se
+i vari collegamenti motore\encoder sono stati eseguiti correttamente.
+
+     Funzioni programma :
+ 
+       Input 0  ==> +24V  Test collegamenti encoder:
+                          muove motore di 400 passi avanti e poi testa se
+                          encoder conteggia correttamente;
+                          dopo movimento verificare lo stato delle uscite
+                          out1 e out2.
+             out1 e out2 spente collegamenti ok
+             out1 lampeggia; spegnere azionamento e :
+
+                  verificare collegamenti encoder.
+                  verificare che interfaccia encoder sia montata.
+                  verificare che impulsi encoder impostati siano corretti
+
+             out2 lampeggia ; spegnere azionamento e :
+
+                  invertire le 2 fasi encoder oppure
+                  invertire una fase motore
+ 
+       Input 1  ==> +24V  
+
+             interrompe movimenti se aperto; questo ingresso
+             va mantenuto chiuso al +24V
+ 
+       Input 2  ==> +24V questo ingresso serve per uscire da una situazione
+                         di blocco per sfasamento    
+ 
+       Input 19 ==> +24V questo ingresso e' riservato ad una eventuale
+                         frequenza esterna di movimento
+ 
+       Input 6  ==> +24V questo ingresso abilita il movimento alla
+                         frequenza esterna se chiuso (il riferimento di
+                         velocit… Š quello che entra sull' ingresso 3)
+ 
+       Input 7  ==> +24V muove avanti di 5000 passi controllando max
+                         sfasamento ed eseguendo eventuale correzione a
+                         fine movimento, il movimento pu• essere
+                         interrotto aprendo l' ingresso 1; durante il
+                         movimento viene settata l'uscita 7.
+ 
+       Input 8  ==> +24V muove indietro di 5000 passi controllando max
+                         sfasamento ed eseguendo eventuale correzione a
+                         fine movimento, il movimento pu• essere interrotto
+                         aprendo l'ingresso 1; durante il movimento viene
+                         settata l'uscita 8.
+ 
+       Input 9  ==> +24V muove avanti in free running sinchŠ l'ingresso 1
+                         o l'ingresso 9 Š aperto controllando max
+                         sfasamento ed eseguendo l'eventuale correzione
+                         a fine movimento, durante il movimento viene
+                         settata l'uscita 9.
+                                     -- 31 --
+
+       Input 10 ==> +24V muove indietro in free running sinchŠ 
+                         l'ingresso 1 o input 10 Š aperto controllando max
+                         sfasamento ed eseguendo l'eventuale correzione a
+                         fine movimento, durante il movimento viene settata
+                         l'uscita 10.
+ 
+
+
+     Esempio 2: file  enc-02.cmd
+
+     Questo programma mostra come eseguire una correzione di posizione a
+fine movimento nel caso non sia necessario il controllo dello sfasamento
+dinamico durante il movimento. Inoltre questo programma consente, chiudendo
+l'ingresso 0, di testare se i vari collegamenti motore\encoder sono stati
+eseguiti correttamente.
+
+     Funzioni programma :
+ 
+       Input 0  ==> +24V  Test collegamenti encoder:
+                          muove motore di 400 passi avanti e poi testa se
+                          encoder conteggia correttamente;
+                          dopo movimento verificare lo stato delle uscite
+                          out1 e out2.
+             out1 e out2 spente collegamenti ok
+             out1 lampeggia; spegnere azionamento e :
+
+                  verificare collegamenti encoder.
+                  verificare che interfaccia encoder sia montata.
+                  verificare che impulsi encoder impostati siano corretti
+
+             out2 lampeggia ; spegnere azionamento e :
+
+                  invertire le 2 fasi encoder oppure
+                  invertire una fase motore
+
+        Input  9  ==> +24V muove avanti di 1000 passi, a fine movimento
+                           calcola i passi di correzione sottraendo dalla 
+                           quota motore la quota encoder e quindi esegue 
+                           l'eventuale correzione di posizione; durante il
+                           movimento viene settata l'uscita 9.
+
+        Input 10  ==> +24V muove indietro di 1000 passi, a fine movimento
+                           calcola i passi di correzione sottraendo dalla
+                           quota motore la quota encoder e quindi esegue 
+                           l'eventuale correzione di posizione; durante il
+                           movimento viene settata l'uscita 10.
+                                    -- 32 --
+
+     UTILIZZO DELL'INTERFACCIA SERIALE RS-232  
+
+     Vedere il manuale tastiere EVER (KEYBOARD.MAN) per una dettagliata
+spiegazione degli argomentiinerenti le tastiere (cavi di connessione,
+programmazione dei messaggi, ecc.).Qui di seguito viene mostrato un esempio
+di utilizzo della tastiera TSMC01 all'interno di un programma XPRES.
+
+     NB: La tastiera trasmette con identificatore sistema = 0 per cui se
+alla stessa sono collegati pi£ sistemi via SPI, i dati vengono ricevuti da
+tutti i sistemi.
+
+                                    -- 33 --
+
+     Esempio 7: tas14-01.cmd
+
+     Per utilizzare questo programma di esempio occorre programmare la
+tastiera TSMC01 per mezzo programma PROTA2.EXE (vedi capitolo
+"programmazione tastiera" sul manuale KEYBOARD.MAN); in particolare occorre
+settare tipo tastiera "TSMC tipo 1" e trasmettere alla tastiera i seguenti
+file :
+
+         tast-01.inp    file contenente i messaggi di input
+         tast-01.out    file contenente i messaggi di output
+
+     Dopo avere programmato la tastiera e dopo avere trasmesso il programma
+XPRES alla scheda MPP14-01, collegare la tastiera al sistema usando un cavo
+RS-232 standard (La manovra va eseguita ad azionamento spento). Questo
+programma consente di impostare da tastiera i seguenti parametri:
+
+     (Vedi maschera tastiera)
+
+       passi di spostamento                  range  da -8388698 a 8388607
+       velocit… di spostamento               range  da  400 a 20000 Hz   
+       pendenza rampa                        range  da  1 a 255   
+       Rapporto tra rampa di salita/discesa  range  da  1 a 255
+       start movimento                                                   
+   
+     Premendo il tasto C (v002) il motore esegue un movimento in funzione
+dei parametri che sono stati impostati e durante il movimento setta
+l'uscita 0. Sul display della tastiera vengono visualizzati i valori
+correnti dei 4 parametri ;ogni volta che viene cambiato un parametro viene
+aggiornata la maschera della tastiera.                                   
+           
+     NB: I valori impostati per essere accettati devono essere all' interno
+dei range indicati.
+                                    -- 34 --
+
+                         MASCHERA TASTIERA     
+
+        ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+        ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³
+        ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³  ³
+        ÃÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄ´
+        ³1 ³2 ³3 ³4 ³5 ³6 ³7 ³8 ³9 ³10³11³12³13³14³15³16³17³18³19³20³
+        ³P ³a ³s ³s ³i ³  ³  ³  ³  ³  ³  ³= ³  ³0 ³ 0³ 0³ 1³ 6³ 0³ 0³
+        ÃÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄ´
+        ³21³22³23³24³25³26³27³28³29³30³31³32³33³34³35³36³37³38³39³40³
+        ³V ³e ³l ³o ³c ³i ³t ³a ³' ³  ³  ³= ³  ³0 ³ 0³ 0³ 2³ 0³ 0³ 0³
+        ÃÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄÅÄÄ´
+        ³41³42³43³44³45³46³47³48³49³50³51³52³53³54³55³56³57³58³59³60³ 
+        ³P ³ e³ n³ d³= ³  ³0 ³ 0³ 2³  ³R ³a ³S ³/ ³D ³= ³  ³ 0³ 0³ 1³
+        ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+    
+    
+    
+    ÚÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿           ÚÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄ¿
+    ³ Passi  ³Velocita³ Start  ³           ³         ³        ³        ³
+    ³spostam.³ movim. ³ motore ³           ³    7    ³   8    ³    9   ³
+    ³ V000  A³ V001  B³ V002  C³           ³         ³        ³        ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´           ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³Pendenza³ Rap.   ³        ³           ³         ³        ³        ³
+    ³        ³Sal/dis ³        ³           ³    4    ³    5   ³    6   ³
+    ³ V003  D³ V004  E³ V005  F³           ³         ³        ³        ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´           ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³        ³        ³        ³           ³         ³        ³        ³
+    ³        ³        ³        ³           ³    1    ³    2   ³    3   ³
+    ³ V006  G³ V007  H³ V008  I³           ³         ³        ³        ³
+    ÃÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´           ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄ´
+    ³        ³        ³        ³           ³         ³        ³        ³
+    ³        ³        ³        ³           ³ CLEAR   ³   0    ³ ENTER  ³
+    ³ V009  L³ V010  M³ V011  N³           ³         ³        ³        ³
+    ÀÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ           ÀÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÙ
+
+     NB: I 4 parametri di spostamento possono essere cambiati anche
+collegando alla seriale il PC ,entrando nella finestra di esecuzione
+diretta e digitando delle stringhe del seguente formato:
+
+     0tx 0 1600       imposta passi di spostamento
+     0tx 1 2000       imposta velocita' di movimento
+     0tx 3 2          imposta pendenza rampa
+     0tx 4 1          imposta rapporto salita discesa
+     0tx 2 1          start movimento
+ 
+                                    -- 35 --
+
+     UTILIZZO DELL'INTERFACCIA SPI    
+
+     Quando si possiede un singolo rack contenete due o pi£ schede MPP14-01
+con due o pi£ schede di I/O queste sono normalmente connesse tra loro
+tramite l'interfaccia SPI (Serial Peripheral Interface) la quale consente
+uno scambio di informazioni molto veloce tra i sistemi connessi; in
+particolare tra i sistemi connessi su SPI Š possibile eseguire le seguenti
+funzioni: 
+
+       settare uscita/e di un sistema connesso su spi       (sos)
+       rettare uscita/e di un sistema connesso su spi       (ros)
+       leggere stato uscita/e di un sistema connesso su spi (oas;ios;ior)
+       leggere stato ingresso/i di un sistema connesso su spi(ias;ios;ior)
+       settare una variabile di un sistema connesso su spi  (svs)
+       leggere una variabile di un sistema connesso su spi  (lvs)
+       leggere il contatore encoder di un sistema connesso su spi (lvs)
+
+     La SPI viene inoltre utilizzata per la gestione del sincronismo di pi£
+motori i quali devono partire e fermarsi esattamente nello stesso istante
+(macro 'sim') e per il controllo della posizione motore/encoder tra pi£
+assi che si muovono parallelamente (macro 'tce';'ate';'csi'). Occorre ogni
+volta che si intende utilizzare l'interfaccia SPI, identificare ognuno dei
+sistemi connessi (macro 'is' da 0 a 9); l'identificatore 0 consente di
+trasmettere contemporaneamente a tutti i sistemi connessi sull' interfaccia
+SPI per cui non Š consigliabile identificare un sistema con identificatore
+0. E' consigliabile utilizzare i dip per selezionare l'identificatore di
+sistema (macro 'dip'). Vengono ora esposti alcuni esempi che indicano
+alcuni modi di utillzzo della interfaccia SPI.
+
+     Esempio 8: spi14-01.cmd
+
+     Questo programma richiede un rack doppio con una sola schede di I/O.
+I dip vengono utilizzati per identificare i 2 sistemi per cui devono essere
+disposti nel seguente modo:
+
+       MPP14-01 con scheda di I/O dip 1=> ON e dip 2=>OFF==> sistema 1
+       MPP14-01 senza scheda di I/O dip 1=> OFF e dip 2=>OFF==> sistema 2
+
+     Se i dip sono settati diversamente il programma non parte.
+Trasmettendo questo programma si vedr… il motore del sistema 1 che esegue
+successivamenti 16 movimenti di 1600 passi partendo da una frequenza di
+1000 Hz e incrementando la stessa di 1000 Hz ad ogni movimento. 
+Inoltre ad ogni movimento viene settata una uscita dalla Out0 alla Out15;
+dopo i 16 movimenti del sistema 1 si vedr… il motore del sistema 2 che
+esegue gli stessi movimenti resettando ad ogni movimento una uscita della
+I/O del sistema 1 dalla Out0 alla Out15 dopodiche ripartir… il motore del
+sistema 1 e si ripete continuamente il ciclo. La funzione svolta dalla spi
+in questo programma e' quella di testare lo stato delle uscite, in
+particolare il sistema 2 attende che tutte le uscite dell'unica scheda di
+I/O ,connessa al sistema 1 siano settate dopodichŠ esegue i sui movimenti
+resettando alla fine di ognuno una uscita della scheda di I/O del sistema
+1.
+
+     NB: Questo programma puo essere trasmesso anche ad un rack doppio
+composto da 2 schede MPP14-01 con 2 schede di I/O; le uscite del sistema
+identificato con 2 rimaranno sempre spente.
+                                    -- 36 --
+
+     Esempio 9: spi14-02.cmd
+
+     Questo programma richiede un rack doppio con 2 schede di I/O. I dip
+vengono utilizzati per identificare i 2 sistemi per cui devono essere
+disposti nel seguente modo:
+
+       dip 1 => ON  e dip 2 =>OFF  ==> sistema 1              
+       dip 1 => OFF e dip 2 =>OFF  ==> sistema 2               
+
+     Se i dip sono settati diversamente il programma non parte.
+               
+     In questo programma il sistema 1 esegue un movimento che il sistema
+2 ripete leggendo velocit… e quota dal sistema 1. A seconda dell'ingresso
+selezionato il sistema 1 esegue movimenti di quota e di velocit… diversi.
+A fine movimento il sistema 1 setta tutte le sue uscite; a questo punto il
+sistema 2 legge la quota e la velocit… dello spostamento appena concluso
+leggendo le variabili 2 e 3 del sistema 1 nelle quali sono stati inseriti
+a fine movimento i due parametri sopra citati ed esegue lo stesso
+movimento. Funzioni che pu• eseguire il sistema 1 :
+
+       Input 0 ==> +24V  muove avanti di 1 giro motore alla velocit… di    
+                   2000 Hz.
+       Input 1 ==> +24V  muove avanti di 2 giri motore alla velocit… di
+                   5000 Hz.
+       Input 2 ==> +24V  muove indietro di 1 giro motore alla velocit… di
+                   2000 Hz.
+       Input 3 ==> +24V  muove indietro di 2 giri motore alla velocit… di
+                   5000 Hz.
+       Input 4 ==> +24V  muove avanti in free running alla velocit… di
+                   15000 Hz sinchŠ ingresso 4 viene riaperto.
+       Input 5 ==> +24V  muove indietro in free running alla velocit… di
+                   15000 Hz sinchŠ ingresso 5 viene riaperto.
+
+     Funzioni che pu• eseguire il sistema 2 :
+
+     esegue lo stesso movimento appena eseguito dal sistema 1 
+
+                                    -- 37 --
+
+     Esempio 10: spi14-03.cmd
+
+     Questo programma richiede un rack doppio con una sola scheda di I/O
+.I dip vengono utilizzati per identificare i 2 sistemi per cui devono
+essere disposti nel seguente modo:
+
+       MPP14-01 con scheda di I/O dip 1 => ON e dip 2 =>OFF ==> sistema 1
+       MPP14-01 senza scheda di I/O dip 1=> OFF e dip 2=>OFF==> sistema 2
+              
+     Se i dip sono settati diversamente il programma non parte.
+               
+     Questo programma dimostra come eseguire un movimento perfettamente
+sincronizzato di 2 motori avendo a disposizione una sola scheda di
+I/O.(Vedi macro "sim" sul manuale XPRESMAC.MAN per comprendere i settaggi
+della macro stessa eseguiti in questo programma) Quando si esegue un
+movimento sincronizzato Š importante definire il sistema master e il
+sistema slave ; se si intende sincronizzare pi£ di 2 sistemi bisogna sempre
+definire un solo sistema master ed eventualmente pi£ sistemi slave. In
+questo programma il sistema 1 Š stato definito come master mentre il
+sistema 2 Š stato definito come slave. Dopo che si Š trasmesso il
+programma, chiudendo l'ingresso 0 si vedranno i 2 motori che fanno 4 giri
+avanti; chiudendo l'ingresso 1 si vedranno i 2 motori che fanno 4 giri
+indietro.       
+                                    -- 38 --
+
+
+
+     O P E R A Z I O N I   S U L   P R O G R A M M A   T R A S M E S S O
+
+
+
+
+     In XPRES Š possibile, dopo averlo trasmesso tramite il tasto <F6>,
+eseguire dei controlli sulle istruzioni memorizzate dall'azionamento o
+eseguire controlli nella fase di esecuzione del programma memorizzato nella
+EıPROM dell'azionamento. In particolare :
+
+     PER VISUALIZZARE ALCUNE RIGHE DI PROGRAMMA 
+
+
+
+       Entrare in comunicazione diretta con il sistema premendo <F5>.
+       Scegliere il Nø di identificatore corrispondente all'azionamento
+       collegato per mezzo del tasto <tab>.
+       Attivare lo stato di esecuzione immediata tramite il tasto <F4> o 
+       il comando <ins>pe<invio>.      
+       Visualizzare le righe di programma volute col comando 'vi'
+
+             <ins>vi<sp>[riga_iniziale]<sp>[riga_finale]<invio>
+
+     PER VISUALIZZARE L'INTERO PROGRAMMA UTENTE MEMORIZZATO NEL SISTEMA
+
+
+
+      Entrare in comunicazione diretta con il sistema premendo <F5>.
+      Scegliere il Nø di identificatore corrispondente allo azionamento
+      collegato per mezzo del tasto <tab>.
+      Attivare lo stato di esecuzione immediata tramite il tasto <F4> o 
+      il comando <ins>pe<invio>.      
+      Visualizzare l'intero programma col tasto <F8> o col comando 'vit'
+ 
+             <ins>vit<invio>
+
+     PER MEMORIZZARE LE VISUALIZZAZIONI IN UN FILE
+
+
+
+      Entrare in comunicazione diretta con il sistema premendo <F5>.
+      Scegliere il Nø di identificatore corrispondente allo azionamento
+      collegato per mezzo del tasto <tab>.
+      Aprire il file XPRES.NCO tramite il tasto funzionale <F3>.
+      Chiedere la visualizzazione parziale o totale del programma in     
+      EıPROM.
+      Terminata la trasmissione chiudere il file XPRES.NCO ripremendo il
+      tasto <F3>.
+
+     PER MEMORIZZARE I MESSAGGI CONTENUTI NELLA FINESTRA DEL MENU DI
+COMUNICAZIONE FRA L'AZIONAMENTO E IL PERSONAL COMPUTER 
+
+
+
+      Entrare in comunicazione diretta con il sistema premendo <F5>.
+      Scegliere il Nø di identificatore corrispondente allo azionamento
+      collegato per mezzo del tasto <tab>.
+      Aprire il file XPRES.NCO tramite il tasto <F3>.
+      Eseguire le operazioni di comunicazione diretta desiderate.
+      Terminate le operazioni di chiudere il file col tasto <F3>.
+
+     Il file XPRES.NCO Š un file ASCII e pu• quindi essere visualizzato con
+un qualsiasi text-editor o tramite il comando MS-DOS 'TYPE'.
+                                    -- 39 --
+
+     PER ESEGUIRE IL TRACE DI UN PROGRAMMA IN ESECUZIONE
+
+
+
+      Entrare in comunicazione diretta con il sistema premendo <F5> .
+      Scegliere il Nø di identificatore corrispondente allo azionamento
+      collegato per mezzo del tasto <tab>.
+      Porre il sistema nello stato di esecuzione immediata dei comandi
+      utilizzando il tasto <F4> o ponendo in BREAK POINT alla riga       
+      voluta di programma letta in NOMEFILE.CML (vedi istruzione 'br'    
+      in XPRESMAC.MAN)
+      Eseguire il trace di riga premendo il tasto <F7>.
+
+                                    -- 40 --
+
+
+
+  A R G O M E N T I  P E R  M A C R O  G E S T I O N E  M E S S A G G I
+
+
+                                                       
+       
+     Le macroistruzioni fornite dall'interprete per la gestione dei
+messaggi hanno una sintassi adatta per un facile controllo del display di
+una tastiera locale e definita da due argomenti. Queste macro non possono 
+lavorare se non vengono applicati tali argomenti anche se le destinazioni
+dei messaggi non sono le tastiere TSMC01 o TVME01.tali argomenti sono:
+
+       CONDIZIONE DI VISUALIZZAZIONE
+       PARAMETRO DI VISUALIZZAZIONE
+  
+     Per il significato degli argomenti fare riferimento alla sezione 
+riguardante  le tastiere locali del manuale KEYBOARD.MAN. Se non richiesti
+dal ricevitore dei messaggi i due argomenti devono essere posti = 1.    
+
+                                    -- 41 --
+
+
+
+                        M E S S A G G I   I N T E R N I
+
+
+                                                               
+
+     Per mezzo delle interfacce seriali l'azionamento pu• visualizzare dei
+messaggi interni numerici nel formato :       
+
+          <stx><id>mi<sp><valore><etx> 
+
+che hanno il significato specificato nella seguente tabella:
+
+ 
+ÚÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³  N. MSG ³  SIGNIFICATO MESSAGGIO                                    ³
+ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³         ³                                                           ³ 
+³   400   ³  PROTEZIONE TERMICA                                       ³
+³   401   ³  FRENO MOTORE                                             ³
+³   500   ³  READY                                                    ³
+³   501   ³  ERRORE NEI DATI RAMPA                                    ³
+³   502   ³  ERR. DIVISIONE PER 0                                     ³
+³   503   ³  VALORE IMPULSI ENCODER NON VALIDO                        ³
+³   504   ³  COMANDO NON ESISTENTE                                    ³
+³   505   ³  N. ARGOMENTI COMANDO ERRATO                              ³
+³   506   ³  CONDIZIONE MACRO LFP ERRATA                              ³
+³   507   ³  ERRORE : RIGA FINALE < RIGA INIZIALE                     ³
+³   508   ³  NUMERO PASSI RAMPA LINEARE TROPPO GRANDE  O NULLO        ³
+³   509   ³  FREQUENZA MAX=640000 Hz                                  ³
+³   510   ³  IL PROGRAMMA E? STATO MEMORIZZATO IN EEPROM              ³
+³   511   ³  N. BYTES ARG. > DI QUELLI PREVISTI                       ³
+³   512   ³  RITARDO NON VALIDO                                       ³
+³   513   ³  NUMERO MAX VARIABILI = 200                               ³
+³   514   ³  ERRORE : VALORE USCITE VELOCI ERRATO                     ³
+³   515   ³  RISULATO MACRO MOL FUORI RANGE >8388607                  ³
+³   516   ³  FINE PROGRAMMA IN ESECUZIONE                             ³
+³   517   ³  RISULTATO MACRO ML FUORI RANGE ( > 4 BYTE)               ³
+³   518   ³  NO PASSI AL GIRO NON COMPRESO TRA 200 E 25600            ³
+³   519   ³  ERRORE NEL CALCOLO RAMPA                                 ³
+³   520   ³  CORRENTE DI FASE > di 15 A                               ³
+³   521   ³  RAM NON SUFFICIENTE                                      ³
+ÀÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+                                                                 
+     NOTE :
+
+                                    -- 42 --
+
+ 
+ÚÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ 
+³  N. MSG ³  SIGNIFICATO MESSAGGIO                                    ³
+ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³   522   ³ VELOCITA' TROPPO GRANDE                                   ³
+³   523   ³ NO COUNTER NON CORRETTO                                   ³
+³   524   ³ N. IDENTIF NON COMPRESO FRA 0 E 9                         ³
+³   525   ³ 1 <= NO TIMER < 16                                        ³
+³   526   ³ SPAZIO RAM NON DISPONIBILE                                ³
+³   527   ³ CORRENTE DI FASE NULLA                                    ³
+³   528   ³ MOTORE GIA' IN MOVIMENTO                                  ³
+³   529   ³ ERRORE : VALORE USCITE DEVE ESSERE <= 65535               ³
+³   530   ³ EEPROM GUASTA                                             ³
+³   531   ³ pmin NON VALIDO                                           ³
+³   532   ³ ARGOMENTO NON VALIDO                                      ³
+³   533   ³ NUMERO VARIABILE NON CORRETTO                             ³
+³   534   ³ MEMORIA INSUFFICIENTE PER MEMORIZZARE PROGRAMMA           ³
+³   535   ³ SUPERAMENTO DEL NUMERO MAX DI RIGHE PROGRAMMA             ³
+³   536   ³ VALORE ARGOMENTO 1 NON VALIDO                             ³
+³   537   ³ VALORE ARGOMENTO 2 NON VALIDO                             ³
+³   538   ³ VALORE ARGOMENTO 3 NON VALIDO                             ³
+³   539   ³ ERRORE : TROPPE SOUBROUTINE APERTE CONTEMPORANEAMENTE     ³
+³   540   ³ ERRORE : RITORNO DA SOUBROUTINE SENZA CHIAMATA            ³
+³   541   ³ ERRORE : NUMERO TASTO NON ESISTE                          ³
+³   542   ³ ERRORE : VALIDI SOLO IN0,IN1,IN2 E DEVONO ESSERE SETTATI  ³
+³   543   ³ ERRORE : CONDIZIONE SU SETTAGGIO INGRESSO NON VALIDA      ³
+³   544   ³ ERRORE : CONDIZIONE VARIABILE ERRATA                      ³
+³   545   ³ ERRORE : IL TEST E' VALIDO PER UN SINGOLO INGRESSO        ³
+³   546   ³ ERRORE : CONDIZIONE PER CONTROLLO PASSI ERRATA            ³
+³   547   ³ ERRORE : NUMERO RIGA DI RITORNO NON ESISTENTE             ³
+³   548   ³ ERRORE : PARAMETRO PER VISUALIZZAZIONE ERRATO             ³
+³   549   ³ ERRORE : CONDIZIONE PER VISUALIZZAZIONE ERRATA            ³
+ÀÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ 
+
+
+
+     NOTE :
+
+                                    -- 43 --
+
+ 
+ÚÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³  N. MSG ³ SIGNIFICATO MESSAGGIO                                     ³
+ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³   550   ³ ERRORE : N. RIGA DI RITORNO (MACRO RSM) NON ESISTENTE     ³
+³   551   ³ ERRORE : N. RIGA DI RITORNO (MACRO RST) NON ESISTENTE     ³
+³   552   ³ ERRORE : VALORE MAX POSITIVO =   8388607                  ³
+³   553   ³ ERRORE : VALORE MAX NEGATIVO =  -8388608                  ³
+³   554   ³ ERRORE : L'ARGOMENTO DEVE ESSERE SOLO POSITIVO            ³
+³   555   ³ ATTENZIONE : ENCODER NON COLLEGATO PER ISTRUZIONE REN     ³
+³   556   ³ ERRORE : IL TEST VALE PER LE VAR. DA 0 A 39               ³
+³   557   ³                                                           ³
+³   558   ³ ERRORE : PROGRAMMA IN EEPROM CORROTTO                     ³
+³   559   ³                                                           ³
+³   560   ³ RITARDO DI DEBOUNCE ERRATO                                ³
+³   561   ³ FRONTE NON CORRETTO                                       ³
+³   562   ³ CONDIZIONE DI SET O RESET ERRATA                          ³
+³   563   ³                                                           ³
+³   564   ³ COMANDO NON ESISTENTE IN 'TABIND'                         ³
+³   565   ³ CONDIZIONE ASSE ELETTRICO ERRATA                          ³
+³   566   ³ PARAMETRI MACRO SMD ERRATI                                ³
+³   567   ³ OVERFLOW IN RADICE QUADRATA                               ³
+³   568   ³ TEMPO DI RAMPA TROPPO GRANDE O NULLO                      ³
+³   569   ³ LA MACRO LFP NON PUO' ESSERE UTILIZZATA SE ABILITATO      ³
+³         ³ INTERRUPT IN2                                             ³
+³   570   ³ VALORE COMBINAZIONE TROPPO GRANDE NELLA MACRO (LIS;LIR)   ³
+³   571   ³ ERRORE : RAMPA NON CALCOLATA                              ³
+³   572   ³ LA MACRO LP NON PUO' ESSERE UTILIZZATA SE ABILITATO       ³
+³         ³ INTERRUPT IN0                                             ³
+³   573   ³ ERRORE DI TIMEOUT SPI                                     ³
+³   574   ³ ERRORE : VALORE INGRESSI VELOCI < 16                      ³
+³   575   ³ TEMPO RIDUZIONE CORRENTE FUORI RANGE                      ³
+³   576   ³ ARGOMENTO NEGATIVO IN UNA DELLE MACRO (MOL;FRA;ML;DL)     ³
+³   577   ³                                                           ³
+ÀÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+     NOTE :
+                                    -- 44 --
+
+ 
+ÚÄÄÄÄÄÄÄÄÄÂÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³  N. MSG ³ SIGNIFICATO MESSAGGIO                                     ³
+ÃÄÄÄÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³   578   ³                                                           ³
+³   579   ³ ERRORE : RAMPA NON ESISTENTE                              ³
+³   580   ³ ERRORE : ARGOMENTO STRINGA NON CORRETTO                   ³
+³   581   ³ ERRORE : LA CIFRA BCD DEVE ESSERE COMPRESA TRA 0 E 9      ³
+³   582   ³ ERRORE : LA SOMMA PASSI SUPERA IL VALORE MAX DI 8388607   ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+³         ³                                                           ³
+ÀÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+     NOTE :
+
+
+                                    -- 45 --
+
+
+
+         C A V O   D I   C O L L E G A M E N T O   P C - M P P 1 4 - 0 1
+
+
+
+ 
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³            CAVO RS232 PC - MPP14-01  (25 POLI - 9 POLI)             ³
+ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³  ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄ Â  Â  Â  ÂÄÄ¿                  ³
+³  ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³10³11³           ³25³ (COMPUTER)       ³
+³  ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄ Á  Á  Á  ÁÄÄÙ (25 poli maschio)³
+³                                                                     ³
+³      TX RX          GND                                             ³
+³  ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄ Â  Â  Â  ÂÄÄ¿                  ³
+³  ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³10³11³           ³25³ (CAVO)           ³
+³  ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÁÂÄÁÄÄÁÄÄÁÄÄÁÄ Á  Á  Á  ÁÄÄÙ (25 poli femmina)³
+³      ³  ³     ÀÄÄOÄÄÅÄÄÙ                                            ³
+³      ³  ÀÄÄÄ¿  ÚÄÙ  ³                                               ³
+³      ÀÄÄÄ¿  ³  ³  ÚÄÙ                                               ³
+³      ÚÄÄÂÁÄÂÁÄÂÁÄÂÁÄÂÄÄÂÄÄÂÄÄÂÄÄ¿                                   ³
+³      ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (CAVO)                            ³
+³      ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ (9 poli femmina)                  ³
+³          RX TX    GND                                               ³
+³      ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿                                   ³
+³      ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (MPP14-01)                        ³
+³      ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ (9 poli maschio)                  ³
+³                                                                     ³
+ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³      (2)  (3)  (5,6,8)  (7)        <--  25 poli maschio (PC)        ³
+³       |    |      |      |                                          ³
+³       |    |      |      |                                          ³
+³      (2)  (3)    (4)    (5)        <--   9 poli femmina (MPP14-01)  ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³          CAVO RS232 PC - MPP14-01 (9 POLI - 9 POLI)                 ³
+ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³       ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿                                  ³
+³       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (COMPUTER)                       ³
+³       ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ (9 poli maschio)                 ³
+³       ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿                                  ³
+³       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (CAVO)                           ³
+³       ÀÄÄÁÄÂÁÄÂÁÄÄÁÂÄÁÄÄÁÄÄÁÄÄÁÄÄÙ (9 poli femmina)                 ³
+³            ³  ³    ³                                                ³
+³           ÚÅÄÄÙ    ³                                                ³
+³           ³ÀÄ¿     ³                                                ³
+³           ³  ³     ³                                                ³
+³       ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÄÄÂÄÄÂÄÄ¿                                  ³
+³       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (CAVO)                           ³
+³       ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ (9 poli femmina)                 ³
+³           RX TX    GND                                              ³
+³       ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿                                  ³
+³       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (MPP14-01)                       ³
+³       ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ (9 poli maschio)                 ³
+³                                                                     ³
+ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+³      (2)  (3)  (5)        <--   9 poli maschio  (PC)                ³
+³       |    |    |                                                   ³
+³       |    |    |                                                   ³
+³      (3)  (2)  (5)        <--   9 poli femmina  (MPP14-01)          ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+                                    -- 46 --
+
+
+
+                   C O L L E G A M E N T I   I N   C A S C A T A
+
+
+
+
+  ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+  ³   Collegamento standard tra un PC e due o pi— sistemi MPP14-01   ³
+  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+        (Connettore 25 poli femmina)
+
+           TX RX          GND
+       ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄ Â  Â  Â  Â  ÂÄÄ¿
+       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³10³11³12³13³              ³25³
+       ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÁÂÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄ Á  Á  Á  Á  ÁÄÄÙ
+           ³  ³     ÀÄÄOÄÄÅÄÄÙ
+           ³  ÀÄÄÄ¿  ÚÄÙ  ³
+           ÀÄÄÄ¿  ³  ³  ÚÄÙ
+           ÚÄÄÂÁÄÂÁÄÂÁÄÂÁÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+           ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (Connettore 9 poli femmina)
+           ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+           ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+           ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (Connettore 9 poli maschio)
+           ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+               ³ ÚÙ     ³        
+               ÀÄÅÄ¿    ³
+               ÚÄÙÚÙ    ³
+           ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+           ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (Connettore 9 poli maschio)
+           ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+           ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+           ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (Connettore 9 poli femmina)
+           ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÙ
+           ÚÄÄÄÙ  ³ ÚÄÄÄOÄÄ¿  ³  ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+           ³      ³ ³      ³  ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³
+           ³      ³ ³      ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³  ³
+           ³      ³ ³      ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿     ³  ³  ³
+           ³      ÀÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿     ³     ³  ³  ³
+           ³  ÚÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³     ³     ³  ³  ³
+       ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÄÄÂÄÄÂÄÄ¿    ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÁÄÂÁÄÂÁÄ¿
+       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+       ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ    ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+       (Connettore 9 poli maschio)     (Connettore 9 poli maschio)
+       (Connettore 9 poli femmina)     (Connettore 9 poli femmina)
+       ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿    ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+       ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÙ    ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÙ
+           ³ ÚÙ     ³     ³  ³  ³          ³ ÚÙ     ³     ³  ³  ³
+           ÀÄÅÄ¿    ³     ³  ³  ³          ÀÄÅÄ¿    ³     ³  ³  ³
+           ÚÄÙÚÙ    ³     ³  ³  ³          ÚÄÙÚÙ    ³     ³  ³  ³
+       ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÁÄÂÁÄÂÁÄ¿    ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÁÄÂÁÄÂÁÄ¿
+       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+       ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ    ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+       (Connettore 9 poli femmina)     (Connettore 9 poli femmina)
+
+           RX TX    GND                    RX TX    GND
+       ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿    ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+       ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+       ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ    ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+       (MPP14B) (9 poli maschio)        (MPP14A) (9 poli maschio)
+                                    -- 47 --
+
+   ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  
+   ³ Schema a blocchi logico del collegamento in cascata tra il PC ³   
+   ³ e due azionamenti MPP14-01:                                   ³    
+   ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ   
+
+                              
+                         tx ÚÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ rx
+        ÚÄÄÄÄÄÄÄÄÄÄ<ÄÄÄÄÄÄÄÄ´     P C     ³ÄÄÄÄÄÄÄÄÄÄÄÄ<ÄÄÄÄÄÄÄÄÄ¿
+        ³                   ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ                      ³
+        ³                                                        ³
+        ³                                                        ³
+        ³                                                        ³
+        ³    rx ÚÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ tx      rx ÚÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ tx    ³
+        ÀÄÄ>ÄÄÄÄ´   MPP14A    ÃÄÄÄÄÄÄÄÄ>ÄÄÄ´   MPP14B    ÃÄÄÄÄ>ÄÄÙ
+                ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+   
+   ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+   ³    Collegamento tra la tastiere dedicate TSMC01 e TVME01 e    ³     
+   ³    due sistemi MPP14-01.                                      ³
+   ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+            (configurazione standard):
+   
+                (TSMC01 o TVME01)
+                    
+              RX TX    GND    -8 +8 +5
+          ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+          ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (Connettore 9 poli maschio)
+          ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+          ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+          ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³ (Connettore 9 poli femmina)
+          ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÙ
+          ÚÄÄÄÙ  ³ ÚÄÄÄOÄÄ¿  ³  ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+          ³      ³ ³      ³  ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³
+          ³      ³ ³      ³  ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³  ³
+          ³      ³ ³      ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿     ³  ³  ³
+          ³      ÀÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿     ³     ³  ³  ³
+          ³  ÚÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿  ³     ³     ³  ³  ³
+      ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÄÄÂÄÄÂÄÄ¿    ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÁÄÂÁÄÂÁÄ¿
+      ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+      ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ    ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+       (Connettore 9 poli maschio)     (Connettore 9 poli maschio)
+       (Connettore 9 poli femmina)     (Connettore 9 poli femmina)
+      ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿    ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+      ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+      ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÙ    ÀÄÄÁÂÄÁÂÄÁÄÄÁÂÄÁÄÄÁÂÄÁÂÄÁÂÄÙ
+          ³ ÚÙ     ³     ³  ³  ³          ³ ÚÙ     ³     ³  ³  ³
+          ÀÄÅÄ¿    ³     ³  ³  ³          ÀÄÅÄ¿    ³     ³  ³  ³
+          ÚÄÙÚÙ    ³     ³  ³  ³          ÚÄÙÚÙ    ³     ³  ³  ³
+      ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÁÄÂÁÄÂÁÄ¿    ÚÄÄÂÁÄÂÁÄÂÄÄÂÁÄÂÄÄÂÁÄÂÁÄÂÁÄ¿
+      ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+      ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ    ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+       (Connettore 9 poli femmina)     (Connettore 9 poli femmina)
+
+          RX TX    GND   -8 +8 +5         RX TX    GND   -8 +8 +5
+      ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿    ÚÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄÂÄÄ¿
+      ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³    ³ 1³ 2³ 3³ 4³ 5³ 6³ 7³ 8³ 9³
+      ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ    ÀÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÁÄÄÙ
+      (MPP14B) (9 poli maschio)        (MPP14A) (9 poli maschio)                                    -- 48 --
+
+    ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+    ³    Schema a blocchi logico del collegamento in cascata tra     ³
+    ³    la tastiera dedicata TSMC01 e due azionamenti MPP14-01:     ³
+    ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+
+
+                          tx ÚÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ rx
+         ÚÄÄÄÄÄÄÄÄÄÄ<ÄÄÄÄÄÄÄÄ´   TSMC01    ³ÄÄÄÄÄÄÄÄÄÄÄÄ<ÄÄÄÄÄÄÄÄÄ¿
+         ³                   ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ                      ³
+         ³                                                        ³
+         ³                                                        ³
+         ³                                                        ³
+         ³    rx ÚÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ tx      rx ÚÄÄÄÄÄÄÄÄÄÄÄÄÄ¿ tx    ³
+         ÀÄÄ>ÄÄÄÄ´   MPP14-01A ÃÄÄÄÄÄÄÄÄ>ÄÄÄ´   MPP14-01B ÃÄÄÄÄ>ÄÄÙ
+                 ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ            ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+
+
+
+    N.B.  Tutti i cavi di connessione devono essere schermati.
+
+  
+       E' possibile collegare fino ad un massimo di 9 sistemi MPP14-01 in 
+       cascata, collegando il pin 'TX' del sistema a monte con il pin    
+       'RX' del sistema a valle.
+ 
+       Ogni stringa in ingresso ad un MPP14-01, compresa fra un <stx> e  
+       un <etx> viene trasmessa in uscita.
+
+                                    -- 49 --
+
+
+                         E N C O D E R
+
+
+La lettura software dell'encoder incrementale (collegato al connettore CN2)
+pu• essere effettuata solo se sul sistema MPP14-01 (scheda di logica 014l01
+250492-184) Š montato l'integrato LS7166 nella posizione U14.
+
+Lo zero encoder (collegato al connettore CN2) pu• essere gestito dal
+software solo se viene protato sull'ingresso 18 tramite il ponticello tra
+i pin U17.1 e U17.5 sulla scheda di logica 014l01 (250492-184).
+Con questo ponticello l'ingresso 18 pu• essere usato per leggere lo zero
+encoder (ad esempio macro 'firh', 'fish') oppure come ingresso "general
+purpose". Le due situazioni non possono esistere contemporaneamente.
+
+
+
+                                    -- 50 --
+
+            R E G I S T R O    D I    S T A T O
+
+                                                                          
+ Il registro di stato Š una variabile interna di 23 bit (il bit pi—
+ significativo non Š gestito) che indica i vari stati di funzionanmento  
+ della macchina. I 23 bit possono essere in ogni momento letti usufruendo
+ delle macro che gestiscono lo status register, inoltre in funzione del
+ significato associato ogni singolo bit pu• essere forzato a zero o ad uno.
+
+
+            condizione associata ad ogni bit :                                                               *
+    ÚÄÂÄÂÄÂÄÂÄÂÄÂÄ¿ÚÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄÂÄ¿                      
+    ³6³5³4³3³2³1³0³³7³6³5³4³3³2³1³0³7³6³5³4³3³2³1³0³                      
+    ÀÂÁÂÁÂÁÂÁÂÁÂÁÂÙÀÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÁÂÙ                      
+ .. <Ù ³ ³ ³ ³ ³ ³  ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ À> Motore in mov.       
+ .. <ÄÄÙ ³ ³ ³ ³ ³  ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ÀÄÄ> Mov.sincronizzato    
+ .. <ÄÄÄÄÙ ³ ³ ³ ³  ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ÀÄÄÄÄ> Errore sinc.partenza 
+ .. <ÄÄÄÄÄÄÙ ³ ³ ³  ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄ> Errore sinc.fermata  
+ .. <ÄÄÄÄÄÄÄÄÙ ³ ³  ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄ> Direzione motore     
+ .. <ÄÄÄÄÄÄÄÄÄÄÙ ³  ³ ³ ³ ³ ³ ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄ> ..
+ .. <ÄÄÄÄÄÄÄÄÄÄÄÄÙ  ³ ³ ³ ³ ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄ> ..
+                    ³ ³ ³ ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ³ ³ ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ³ ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ³ ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ³ ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ³ ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ³ ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ³ ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+                    ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ> ..                   
+
+
+-- Descrizione dei bit utilizzati:
+
+        - Motore in movimento (bit0):
+
+        Indica lo stato del motore:    fermo  (bit0=0) 
+                                       marcia (bit0=1) 
+        Questo bit deve essere solamente letto quindi non deve mai essere
+        forzato ad un valore.
+
+
+        - Movimento sincronizzato (bit1):
+
+        Indica che il movimento in corso Š sincronizzato con il movimento
+        di un'altro sistema (bit1=1). Vedi macro "SIM" per specifiche sul
+        movimento sincronizzato.
+        Questo bit deve essere solamente letto quindi non deve mai essere
+        forzato ad un valore.
+
+        - Errore sincronismo in partenza (bit2):
+
+        Indica l'errore di sincronismo in partenza fra pi— motori che devono
+        eseguire un movimento sincronizzato.
+        Il bit2 viene settato ad 1 se non avviene il sincronismo, durante il
+        tempo di timeout in partenza (il motore non parte).
+        In pratica se si lancia un movimento avendo prima specicato che 
+        la partenza deve essere sincronizzata con la partenza del motore 
+        di un secondo sistema, se dopo il tempo di timeout (specificato
+        nella macro sim) il secondo sistema non Š pronto a partire, 
+        l'esecuzione del programma passa alla macro successiva forzando
+        il bit2 = 1 (il motore non parte); Š quindi consigliabile testare 
+        il bit2 dello status register dopo l'esecuzione di una macro di 
+        movimento sincronizzato per controllare se la partenza e' stata 
+        correttamente eseguita.
+        Questo bit dopo che Š stato letto uguale ad 1 deve essere forzato
+        a zero tramite le macro di gestione dello status register.
+
+        NB: Durante il tempo di sincronismo, l'esecuzione del programma
+            rimane bloccata sulla macro di movimento in questione.        
+
+
+        - Errore sincronismo in fermata (bit3):
+
+        Indica l'errore di sincronismo in fermata fra pi— motori che devono
+        eseguire un movimento con fermata sincronizzata.
+        Il bit3 viene settato ad 1 se non avviene il sincronismo, durante il
+        tempo di timeout in fermata (il motore viene comunque fermato).
+ 
+        Se si Š specificato che due motori appartenenti ad altrettanti 
+        sistemi, devono eseguire una fermata sincronizzata, dal momento che
+        il primo dei 2 e' pronto a fermarsi, prima di farlo attende 
+        per il tempo di timeout che anche il secondo sia pronto a fermarsi,
+        se durante il timeout, non avviene la sincronizzazione, il sistema
+        pronto si ferma comunque forzando il bit3 = 1; Š quindi 
+        consigliabile testare il bit3 dello status register dopo l'esecuzione 
+        di una macro di fermata sincronizzata per contrallare se la fermata
+        Š stata correttamente eseguita.
+        Questo bit dopo che Š stato letto uguale ad 1 deve essere forzato
+        a zero tramite le macro di gestione dello status register.
+
+        NB: Durante il tempo di sincronismo, l'esecuzione del programma
+            rimane bloccata sulla macro di fermata in questione.        
+
+        - Motore in movimento (bit4):
+
+        Indica il verso di rotazione attuale del motore : positiva  (bit4=0) 
+                                                          negativa  (bit4=1) 
+        Questo bit deve essere solamente letto quindi non deve mai essere
+        forzato ad un valore.
+
+
+                                    -- 51 --
+
