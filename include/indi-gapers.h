@@ -6,9 +6,6 @@ Copyright (C) 2024 Gruppo Astrofili Persicetani
 Copyright (C) 2014 Maurizio Serrazanetti
 */
 
-#ifndef GAPERSSCOPE_H
-#define GAPERSSCOPE_H
-
 #pragma once
 
 #include <string>
@@ -19,7 +16,6 @@ Copyright (C) 2014 Maurizio Serrazanetti
 
 #include <inditelescope.h>
 #include <queue>
-#include <string>
 
 class GapersScope : public INDI::Telescope
 {
@@ -88,15 +84,13 @@ private:
   double domeCurrentAZ;
   double domeTargetAZ;
   DomeStatus DomeTrackState;
-  double domeSpeed;
-  double domeAzThreshold;
   time_t domeMovementStart;
   time_t domeMovementEnd;
 
   // Serial handling methods and properties
   void commHandler();
   void ParsePLCMessage(const std::string msg);
-  void SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri);
+  void SendMove(char _system, long steps, long m_sq, long m_eq, long m_giri);
   void FinalizeMove();
   void SendCommand( char syst, short int cmd, long val );
   bool Handshake();
@@ -133,6 +127,8 @@ private:
   };
 
   double rangeDistance( double );
+  double _calcMoveTime( double steps, double vp, double rs ) const;
+  static double normalizeAz( double az );
   bool _setMoveDataRA( double );
   bool _setMoveDataDEC( double );
   bool _rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
@@ -148,5 +144,3 @@ private:
 #define ASCII_CR                0x0D
 #define ASCII_XON               0x11
 #define ASCII_XOFF              0x13
-
-#endif // GAPERSSCOPE_H

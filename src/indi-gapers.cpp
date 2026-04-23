@@ -19,24 +19,13 @@ Copyright (C) 2014 Maurizio Serrazanetti
 #include <termios.h>
 #include <unistd.h>
 
-
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <math.h>
 #include "config.h"
-
-#define PARITY_NONE 0
-#define PARITY_EVEN 1
-#define PARITY_ODD  2
-
-const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
-const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
-//const int   POLLMS = 250;                      /* poll period, ms */
 
 const char *DOME_TAB = "Cupola";
 
-// std::auto_ptr<GapersScope> gapersScope(0);
 static std::unique_ptr<GapersScope> gapersScope(new GapersScope());
 
 /**************************************************************************************
@@ -44,14 +33,7 @@ static std::unique_ptr<GapersScope> gapersScope(new GapersScope());
 ***************************************************************************************/
 void ISInit()
 {
-  static int isInit=0;
-  if (isInit)
-  return;
-  if (gapersScope.get() == 0)
-  {
-    isInit = 1;
-    gapersScope.reset(new GapersScope());
-  }
+  // gapersScope è inizializzato staticamente; nulla da fare.
 }
 /**************************************************************************************
 ** Return properties of device.
@@ -242,9 +224,7 @@ bool GapersScope::Goto(double ra, double dec)
   if (eqa.lng > 180.) eqa.lng -= 360.;
   eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  psn.az += 180.;
-  while (psn.az >= 360.) psn.az -= 360.;
-  while (psn.az < 0.) psn.az += 360.;
+  psn.az = normalizeAz(psn.az + 180.);
 
   char RAStr[64], DecStr[64];
   // Parse the RA/DEC into strings
@@ -303,8 +283,18 @@ bool GapersScope::Goto(double ra, double dec)
     // Inform client we are slewing to a new position
     DEBUGF(INDI::Logger::DBG_SESSION, "Slewing to RA: %s - DEC: %s", RAStr, DecStr);
   } else {
-    DEBUG(INDI::Logger::DBG_SESSION, "BAZINGA! Nothing is actually moving.");
-    return false;
+    DEBUG(INDI::Logger::DBG_SESSION, "Null movement: coordinates already at target position.");
+    // Close movement as if it was already executed
+    currentRA = targetRA;
+    currentDEC = targetDEC;
+    TrackState = SCOPE_TRACKING;
+    NewRaDec(currentRA, currentDEC);
+    
+    // If Dome in auto mode, sync dome to telescope azimuth
+    if (domesyncS[0].s == ISS_ON) {
+      DomeSync(psn.az);
+    }
+    return true;
   }
 
   char raDistStr[64];
@@ -449,10 +439,7 @@ bool GapersScope::ReadScopeStatus()
   if (eqa.lng > 180.) eqa.lng -= 360.;
   eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
-  psn.az += 180.;
-  while (psn.az >= 360.) psn.az -= 360.;
-  while (psn.az < 0.) psn.az += 360.;
+  psn.az = normalizeAz(psn.az + 180.);
   NewAltAz(psn.alt, psn.az);
 
   // If telescope is not moving and aim azimuth is more distant than threshold from
@@ -460,11 +447,10 @@ bool GapersScope::ReadScopeStatus()
   ISwitch *sw;
   sw=IUFindSwitch(&domesyncSP,"AUTO");
   if((sw != NULL)&&( sw->s==ISS_ON )) {
-    domeAzThreshold = domeAzThresholdN[0].value;
-    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
+    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThresholdN[0].value)) {
       char azStr[64];
       fs_sexa(azStr, psn.az, 2, 3600);
-      DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThreshold);
+      DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThresholdN[0].value);
       DomeGoto(psn.az);
     }
   }
@@ -472,6 +458,22 @@ bool GapersScope::ReadScopeStatus()
   // Process serial communication with PLC
   commHandler();
   return true;
+}
+
+double GapersScope::_calcMoveTime(double steps, double vp, double rs) const {
+  // Calcola il tempo di percorrenza in secondi dati i passi (valore assoluto),
+  // la velocità di regime vp e i passi totali di rampa rs.
+  // Le rampe di accel/decel sono lineari; velocità media = (vp-200)/2.
+  const double tr = rs / ((vp - 200.0) / 2.0);
+  if (steps > rs)
+    return ((steps - rs) / vp) + tr;
+  return (steps * tr) / rs;
+}
+
+double GapersScope::normalizeAz(double az) {
+  while (az >= 360.) az -= 360.;
+  while (az < 0.)    az += 360.;
+  return az;
 }
 
 bool GapersScope::_setMoveDataRA( double distance ) {
@@ -483,39 +485,12 @@ bool GapersScope::_setMoveDataRA( double distance ) {
   const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
   const double spd = 220088.2; // Passi motore per grado di spostamento asse
   const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
-  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
-  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
-  // rampa lineare il valore dovrebbe essere accurato.
-  const double tr = rs / ((vp-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
-
-  // Variabili d'appoggio
-  double tm = 0; // Tempo necessario allo spostamento dell'asse
-  double correction = 0; // Passi necessari a compensare il moto siderale occorso durante lo spostamento
-
-  // La componente del moto siderale è sempre positiva (da est ad ovest),
-  // pertanto consideriamo il valore assoluto del numero di passi necessari
-  // per lo spostamento, memorizzando la direzione per potere alla fine
-  // effettuare la correzione nella giusta direzione.
   int direction = ( distance > 0 ? 1 : -1);
-  double steps = fabs( distance ) * spd;
-
-  if ( steps > rs ) {
-    // Il movimento richiesto è superiore ai passi necessari per completare
-    // le rampe di accelerazione e decellerazione dei motori. Viene calcolata
-    // la correzione da applicare per il moto siderale considerando il tempo
-    // necessario a completare le rampe sommato a quello necessario per
-    // compiere i rimanenti passi a velocità di regime
-    tm = ((steps - rs) / vp) + tr;
-  } else {
-    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : rs (passi per compiere entrambe le rampe)
-    tm = (steps * tr) / rs;
-  }
-  // La correzione applicata è pari al tempo totale di spostamento moltiplicato
-  // per la velocità siderale in passi al secondo. NB: l'algoritmo non è preciso
-  // perché non viene considerato l'effetto della correzione sul tempo totale
-  // necessario al movimento, ma l'errore così introdotto dovrebbe essere
-  // abbastanza piccolo da essere trascurabile.
-  correction = tm * vs;
+  double steps  = fabs( distance ) * spd;
+  double tm     = _calcMoveTime(steps, vp, rs);
+  // La correzione è pari al tempo di spostamento per la velocità siderale;
+  // l'approssimazione è trascurabile per movimenti tipici.
+  double correction = tm * vs;
   // Impostazione variabili necessarie per il movimento (movimento semplice o per giri)
   raMovement.angle = distance;
   // Imposta il numero di passi corretto arrotondato all'intero più vicino
@@ -524,7 +499,7 @@ bool GapersScope::_setMoveDataRA( double distance ) {
   raMovement.endQuote = 0;
   raMovement.rotations = 0;
   raMovement.time = tm;
-  if (abs(raMovement.steps) > 80*12800) {
+  if (std::abs(raMovement.steps) > 80*12800) {
     return _rotationsCalc(raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
   }
   return true;
@@ -532,44 +507,19 @@ bool GapersScope::_setMoveDataRA( double distance ) {
 
 bool GapersScope::_setMoveDataDEC( double distance ) {
   // Costanti usate nel calcolo
-  // const double vs = 919.456; // Velocità moto siderale in passi per secondo
-  const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
-  const double spd = 192000.0; // Passi motore per grado di spostamento asse
+  const double vp  = 220000.0;  // Velocità movimento asse in passi per secondo
+  const double spd = 192000.0;  // Passi motore per grado di spostamento asse
   const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
-  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
-  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
-  // rampa lineare il valore dovrebbe essere accurato.
-  const double tr = rs / ((vp-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
-
-  // Variabili d'appoggio
-  double tm = 0; // Tempo necessario allo spostamento dell'asse
-
-  // La componente del moto siderale è sempre positiva (da est ad ovest),
-  // pertanto consideriamo il valore assoluto del numero di passi necessari
-  // per lo spostamento, memorizzando la direzione per potere alla fine
-  // effettuare la correzione nella giusta direzione.
   int direction = ( distance > 0 ? 1 : -1);
-  double steps = fabs( distance ) * spd;
-
-  if ( steps > rs ) {
-    // Il movimento richiesto è superiore ai passi necessari per completare
-    // le rampe di accelerazione e decellerazione dei motori. Viene calcolata
-    // la correzione da applicare per il moto siderale considerando il tempo
-    // necessario a completare le rampe sommato a quello necessario per
-    // compiere i rimanenti passi a velocità di regime
-    tm = ((steps - rs) / vp) + tr;
-  } else {
-    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : rs (passi per compiere entrambe le rampe)
-    tm = (steps * tr) / rs;
-  }
-  // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
+  double steps  = fabs( distance ) * spd;
+  double tm     = _calcMoveTime(steps, vp, rs);
   decMovement.angle = distance;
   decMovement.steps = static_cast<long>((steps+0.5) * direction );
   decMovement.startQuote = 0;
   decMovement.endQuote = 0;
   decMovement.rotations = 0;
   decMovement.time = tm;
-  if (abs(decMovement.steps) > 80*12800) {
+  if (std::abs(decMovement.steps) > 80*12800) {
     return _rotationsCalc(decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
   }
   return true;
@@ -623,10 +573,7 @@ bool GapersScope::Sync(double ra, double dec)
   if (eqa.lng > 180.) eqa.lng -= 360.;
   eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
-  psn.az += 180.;
-  while (psn.az >= 360.) psn.az -= 360.;
-  while (psn.az < 0.) psn.az += 360.;
+  psn.az = normalizeAz(psn.az + 180.);
   NewAltAz(psn.alt, psn.az);
 
   ISwitch *sw;
@@ -681,7 +628,7 @@ bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_gir
   m_sq=0;
   m_eq=0;
 
-  if (abs(steps) < qsafe) {
+  if (std::abs(steps) < qsafe) {
     // Sanity check: questa procedura dovrebbe essere utilizzata soltanto per
     // spostamenti superiori a 38 gradi, 2^23 passi. Utilizzarla per movimenti
     // più ridotti non è comunque un problema fino a che si sta sopra alla
@@ -838,8 +785,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       for (int x=0; x<n; x++) {
         INumber *th = IUFindNumber(&domeAzThresholdNP, names[x]);
         if (th == &domeAzThresholdN[0]) {
-          domeAzThreshold = values[x];
-          domeAzThresholdN[0].value = domeAzThreshold;
+          domeAzThresholdN[0].value = values[x];
         }
       }
       domeAzThresholdNP.s = IPS_OK;
@@ -848,8 +794,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       for (int x=0; x<n; x++) {
         INumber *sp = IUFindNumber(&domeSpeedNP, names[x]);
         if (sp == &domeSpeedN[0]) {
-          domeSpeed = values[x];
-          domeSpeedN[0].value = domeSpeed;
+          domeSpeedN[0].value = values[x];
         }
       }
       domeSpeedNP.s=IPS_OK;
@@ -887,7 +832,6 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         domeAzNP.s = IPS_ALERT;
         IDSetNumber(&domeAzNP, NULL);
         return rc;
-        // domeAzN[0].value = az;
       }
       domeAzNP.s = IPS_OK;
       IDSetNumber(&domeAzNP, NULL);
@@ -939,7 +883,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         // Issue GOTO
         rc=Goto(ra,dec);
         if (rc)
-        Eq2kNP.s = lastEq2kState = IPS_BUSY;
+        Eq2kNP.s = lastEq2kState = (TrackState == SCOPE_SLEWING) ? IPS_BUSY : IPS_OK;
         else
         Eq2kNP.s = lastEq2kState = IPS_ALERT;
         IDSetNumber(&Eq2kNP, NULL);
@@ -1027,7 +971,7 @@ void GapersScope::commHandler() {
       int rv = write(PortFD, (unsigned char*) _writequeue.front().c_str(), _writequeue.front().size());
       if (rv == -1) {
         // error occurred
-        DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error %d during write\n", strerror(errno));
+        DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error %s during write\n", strerror(errno));
         // empty queue and abort processing
         Disconnect();
         return;
@@ -1056,13 +1000,12 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // most of the code, CRC check is silently ignored and can happily be
   // filled with imaginary powers of 42.
   char    syst;
-  // char *  ps;
   char    cmd[ 8];
 
   if (msg.empty()) return;
 
   // Convert 2 fields!
-  if( sscanf( msg.c_str(), "%c%s ", &syst, cmd) != 2) {
+  if( sscanf( msg.c_str(), "%c%7s ", &syst, cmd) != 2) {
     DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres syntax error: '%s'\n", msg.c_str());
     return;
   }
@@ -1144,7 +1087,6 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
     sscanf( msg.substr(4).c_str(), "%d %d %d ", &val, &var, &whr);
     LOGF_DEBUG("comm-handler: Xpres EVENT %c %d %d %d", syst, var, val, whr);
     // m_signal_event.emit(syst, var, val, whr);
-    // TODO: process var update command
     switch (syst) {
       case '1': // Var update in RA subsystem
       switch (var) {
@@ -1206,7 +1148,7 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
 
 }
 
-void GapersScope::SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri) {
+void GapersScope::SendMove(char _system, long steps, long m_sq, long m_eq, long m_giri) {
   switch (_system) {
     case '1': raIsMoving = true; break;
     case '2': decIsMoving = true; break;
@@ -1215,7 +1157,7 @@ void GapersScope::SendMove(int _system, long steps, long m_sq, long m_eq, long m
     return;
     break;
   }
-  if( abs( m_giri ) > 0)	{
+  if( std::abs( m_giri ) > 0)	{
     DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: Movement > 2^23 steps on %c axis: %d %d %d %d.\n", _system, steps, m_sq, m_eq, m_giri);
     SendCommand(_system, 10, m_sq);
     SendCommand(_system, 9, 5);
