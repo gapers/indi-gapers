@@ -7,4 +7,4 @@ config.h
 indi_gapers.xml
 install_manifest.txt
 CMakeFiles
-indi_gapers.code-workspace
+indi-gapers.code-workspace
