@@ -95,14 +95,12 @@ private:
   time_t domeMovementEnd;
 
   // Serial handling methods and properties
-  int tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd);
   void commHandler();
   void ParsePLCMessage(const std::string msg);
   void SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri);
   void FinalizeMove();
   void SendCommand( char syst, short int cmd, long val );
   bool Handshake();
-  int PortFD{-1};
 
   Connection::Serial *serialConnection{nullptr};
 

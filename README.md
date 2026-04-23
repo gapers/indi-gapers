@@ -97,6 +97,25 @@ indi_getprop "GAPers Telescope.CONNECTION.*" \
 
 L'output atteso mostra `CONNECTION.CONNECT=On`, `SIMULATION.ENABLE=On` e le coordinate RA/DEC a zero.
 
+### Test suite seriale virtuale (senza hardware)
+
+Nel repository è disponibile una suite automatica basata su pseudo-terminali (`socat`) per verificare il driver senza porta seriale fisica:
+
+```bash
+./scripts/virtual_serial_test_suite.sh
+```
+
+Versione con emulatore seriale minimale sul peer PTY:
+
+```bash
+./scripts/virtual_serial_test_suite.sh --with-emulator
+```
+
+La suite verifica almeno:
+
+- connessione in modalità simulation (`IPS Ok`)
+- gestione connessione in modalità reale su seriale virtuale (`IPS Ok` oppure `IPS Alert` gestito)
+
 ### Avviare il server INDI con il driver (hardware reale)
 
 ```bash
