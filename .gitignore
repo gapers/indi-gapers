@@ -9,3 +9,5 @@ install_manifest.txt
 CMakeFiles
 indi-gapers.code-workspace
 build/
+__pycache__/
+*.pyc
