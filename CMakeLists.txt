@@ -42,14 +42,34 @@ include(CMakeCommon)
 
 # Target executable
 add_executable(indi_gapers src/indi-gapers.cpp)
+
+# Prefer imported targets when available, while keeping compatibility with
+# legacy Find modules that export plain variables.
+set(INDI_GAPERS_NOVA_LINK NOVA_LIBRARIES)
+if(TARGET Nova::Nova)
+    set(INDI_GAPERS_NOVA_LINK Nova::Nova)
+endif()
+
+set(INDI_GAPERS_GSL_LINK GSL_LIBRARIES)
+if(TARGET GSL::gsl)
+    set(INDI_GAPERS_GSL_LINK GSL::gsl)
+endif()
+
 target_include_directories(indi_gapers PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${INDI_INCLUDE_DIR}
-    ${NOVA_INCLUDE_DIR}
 )
-target_compile_features(indi_gapers PRIVATE cxx_std_11)
-target_link_libraries(indi_gapers ${INDI_DRIVER_LIBRARIES} ${NOVA_LIBRARIES} ${GSL_LIBRARIES})
+if(NOT TARGET Nova::Nova)
+    target_include_directories(indi_gapers PRIVATE ${NOVA_INCLUDE_DIR})
+endif()
+
+target_compile_features(indi_gapers PRIVATE cxx_std_17)
+target_link_libraries(indi_gapers PRIVATE
+    ${INDI_DRIVER_LIBRARIES}
+    ${INDI_GAPERS_NOVA_LINK}
+    ${INDI_GAPERS_GSL_LINK}
+)
 
 # tell cmake where to install our executable
 install (TARGETS indi_gapers RUNTIME DESTINATION bin)

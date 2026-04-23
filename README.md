@@ -22,7 +22,7 @@ Layout consigliato adottato:
 ### Dipendenze di sistema
 
 - **CMake** >= 3.5
-- **GCC/G++** con supporto C++11
+- **GCC/G++** con supporto C++17
 - **libindi** (INDI Core Libraries)
 - **libnova** (Nova Astronomical Library)
 - **zlib**
@@ -67,20 +67,30 @@ cmake -S . -B build
 cmake --build build -j
 ```
 
-oppure (compatibile con il Makefile in-source già presente):
-
-```bash
-cmake -S . -B .
-make
-```
+Il progetto supporta anche la build in-source (compatibilità storica), ma è consigliata la build out-of-source (`build/`) per mantenere la root pulita.
 
 ### 3. Installare
 
 ```bash
-sudo make install
+sudo cmake --install build
+```
+
+Per installare da una build in-source:
+
+```bash
+sudo cmake --install .
 ```
 
 Il binario `indi_gapers` viene installato in `/usr/bin/` e il file XML del driver in `/usr/share/indi/`.
+
+### Note CMake
+
+Il `CMakeLists.txt` usa linking target-based quando possibile:
+
+- `Nova::Nova` se disponibile, con fallback su `NOVA_LIBRARIES`
+- `GSL::gsl` se disponibile, con fallback su `GSL_LIBRARIES`
+
+Questo permette compatibilità sia con ambienti moderni sia con moduli Find legacy.
 
 ---
 
