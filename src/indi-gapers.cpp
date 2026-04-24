@@ -115,6 +115,11 @@ GapersScope::GapersScope()
   // Set telescope capabilities
   SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO | TELESCOPE_CAN_ABORT, 0);
 
+  // Set dome capabilities (rotation only, no shutter).
+  // Declare DOME_INTERFACE so clients (e.g. KStars/Ekos) recognise this
+  // driver as a combined telescope+dome device.
+  setDriverInterface(getDriverInterface() | DOME_INTERFACE);
+
 }
 /**************************************************************************************
 ** We init our properties here. The only thing we want to init are the Debug controls
@@ -154,7 +159,7 @@ bool GapersScope::initProperties()
   // Dome auto-sync property
   IUFillSwitch(&domesyncS[0], "AUTO", "Auto", ISS_ON);
   IUFillSwitch(&domesyncS[1], "MANUAL", "Manual", ISS_OFF);
-  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDefaultName(), "DOME_MOVEMENT", "Dome Movement", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
+  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDefaultName(), "DOME_AUTOSYNC", "Dome AutoSync", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
   // Add Alt Az coordinates
   IUFillNumber(&AaN[0], "ALT", "Alt (dd:mm:ss)", "%010.6m", -90, 90, 0, 0);
@@ -169,8 +174,8 @@ bool GapersScope::initProperties()
   IUFillNumberVector(&telescopeInfoNP, telescopeInfoN, 4, getDefaultName(), "TELESCOPE_INFO", "Telescope Info", MAIN_CONTROL_TAB, IP_RW, 60, IPS_IDLE);
 
   // Dome azimuth and slew mode
-  IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
-  IUFillNumberVector(&domeAzNP, domeAzN, 1, getDefaultName(), "DOME_AZIMUTH", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
+  IUFillNumber(&domeAzN[0], "DOME_ABSOLUTE_POSITION", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
+  IUFillNumberVector(&domeAzNP, domeAzN, 1, getDefaultName(), "DOME_ABSOLUTE_POSITION", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   IUFillSwitch(&domeCoordS[0], "SLEW", "Slew", ISS_ON);
   IUFillSwitch(&domeCoordS[1], "SYNC", "Sync", ISS_OFF);
@@ -443,11 +448,11 @@ bool GapersScope::DomeSync(double az) {
 ***************************************************************************************/
 bool GapersScope::Abort()
 {
-  // Cannot abort if we are not currently moving.
-  if (TrackState != SCOPE_SLEWING) {
-    DEBUG(INDI::Logger::DBG_SESSION, "Cannot abort since mount is not slewing.");
-    return false;
-  } 
+  // Cannot abort if neither telescope nor dome is moving.
+  if (TrackState != SCOPE_SLEWING && DomeTrackState != DOME_SLEWING) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Cannot abort since neither mount nor dome is moving.");
+    return true;
+  }
   if (TrackState == SCOPE_SLEWING && isSimulation()) {
     // Freeze simulated position at the abort instant.
     const double elapsed = difftime(time(NULL), movementStart);
@@ -472,14 +477,37 @@ bool GapersScope::Abort()
   initialSyncCompleted = false;
   TrackState = SCOPE_IDLE;
 
-  // Stop dome: discard any pending movement and sync it to the current telescope azimuth.
+  // Stop dome movement.
   if (DomeTrackState == DOME_SLEWING) {
-    // Flush the write queue so no further dome commands are sent.
-    _writequeue = std::queue<std::string>();
+    if (isSimulation()) {
+      // In simulation, freeze dome at its current interpolated position.
+      const double now = static_cast<double>(time(NULL));
+      const double movEnd   = static_cast<double>(domeMovementEnd);
+      const double movStart = static_cast<double>(domeMovementStart);
+      const double total = movEnd - movStart;
+      if (total > 0) {
+        const double elapsed = now - movStart;
+        const double fraction = (elapsed < total) ? (elapsed / total) : 1.0;
+        const double azDist = rangeDistance(domeTargetAZ - domeCurrentAZ);
+        domeCurrentAZ = normalizeAz(domeCurrentAZ + azDist * fraction);
+      }
+      domeAzN[0].value = domeCurrentAZ;
+      domeAzNP.s = IPS_IDLE;
+      IDSetNumber(&domeAzNP, NULL);
+      DEBUG(INDI::Logger::DBG_SESSION, "Dome abort (simulation): position frozen.");
+    } else {
+      // Real hardware: PLC does not support dome abort. Flush pending commands
+      // and sync the dome state to target when movement completes naturally.
+      _writequeue = std::queue<std::string>();
+      DEBUG(INDI::Logger::DBG_SESSION, "Dome abort: PLC does not support dome stop; movement will complete.");
+      domeAzNP.s = IPS_IDLE;
+      IDSetNumber(&domeAzNP, NULL);
+    }
     DomeTrackState = DOME_IDLE;
   }
-  // Compute current telescope azimuth and sync the dome to it.
-  {
+  // Compute current telescope azimuth and sync the dome to it (only when
+  // telescope was slewing; if only dome was aborting, position already updated above).
+  if (TrackState == SCOPE_IDLE) {
     ln_equ_posn eqc;
     ln_lnlat_posn eqa;
     ln_hrz_posn psn;
@@ -497,17 +525,19 @@ bool GapersScope::Abort()
     DEBUG(INDI::Logger::DBG_SESSION, "Dome synced to current telescope azimuth after abort.");
   }
 
-  // After abort, require a fresh sync exactly like at startup.
-  CoordSP.reset();
-  auto *syncSw = CoordSP.findWidgetByName("SYNC");
-  if (syncSw != nullptr)
-    syncSw->setState(ISS_ON);
-  CoordSP.setState(IPS_OK);
-  CoordSP.apply("Abort executed: mount marked as unsynchronized. Please SYNC before SLEW/TRACK.");
+  // After telescope abort, require a fresh sync exactly like at startup.
+  if (TrackState == SCOPE_IDLE) {
+    CoordSP.reset();
+    auto *syncSw = CoordSP.findWidgetByName("SYNC");
+    if (syncSw != nullptr)
+      syncSw->setState(ISS_ON);
+    CoordSP.setState(IPS_OK);
+    CoordSP.apply("Abort executed: mount marked as unsynchronized. Please SYNC before SLEW/TRACK.");
+    // Updates both J2000 (Eq2kNP / EQUATORIAL_COORD) and parent EOD/JNow coords.
+    NewRaDec(currentRA, currentDEC);
+  }
 
-  // Updates both J2000 (Eq2kNP / EQUATORIAL_COORD) and parent EOD/JNow coords.
-  NewRaDec(currentRA, currentDEC);
-  DEBUG(INDI::Logger::DBG_SESSION, "Gapers Scope stopped.");
+  DEBUG(INDI::Logger::DBG_SESSION, "Gapers Scope abort complete.");
   return true;
 }
 /**************************************************************************************
@@ -752,7 +782,8 @@ bool GapersScope::saveConfigItems(FILE *fp) {
   IUSaveConfigNumber(fp, &domeSpeedNP);
   IUSaveConfigNumber(fp, &domeAzThresholdNP);
 
-  return INDI::Telescope::saveConfigItems(fp);
+  bool rc = INDI::Telescope::saveConfigItems(fp);
+  return rc;
 }
 
 void GapersScope::NewAltAz(double alt, double az) {
@@ -838,7 +869,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       IDSetNumber(&domeSpeedNP, NULL);
       saveConfig(true, domeSpeedNP.name);
       return true;
-    } else if(strcmp(name,"DOME_AZIMUTH")==0) {
+    } else if(strcmp(name,"DOME_ABSOLUTE_POSITION")==0) {
       auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
       if (domeAutoSw != nullptr && domeAutoSw->s == ISS_ON) {
         DEBUG(INDI::Logger::DBG_WARNING, "Cannot set azimuth while in auto mode.");
@@ -847,7 +878,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         return true;
       }
       for (int x=0; x<n; x++) {
-        if (!strcmp(names[x], "AZ")) {
+        if (!strcmp(names[x], "DOME_ABSOLUTE_POSITION")) {
           az = values[x];
         }
       }
