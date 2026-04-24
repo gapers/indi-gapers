@@ -36,6 +36,11 @@ constexpr double OTA_APERTURE_MM = 380.0;
 constexpr double OTA_FOCAL_LENGTH_MM = 2000.0;
 constexpr double GUIDER_APERTURE_MM = 0.0;
 constexpr double GUIDER_FOCAL_LENGTH_MM = 0.0;
+
+double domeRpmToFullSpinSeconds(double rpm)
+{
+  return 60.0 / rpm;
+}
 }
 
 static std::unique_ptr<GapersScope> gapersScope(new GapersScope());
@@ -129,7 +134,7 @@ bool GapersScope::initProperties()
   // ALWAYS call initProperties() of parent first
   INDI::Telescope::initProperties();
 
-  // Default mount type: Equatorial German Mount.
+  // Default mount type: Equatorial Fork Mount.
   if (!MountTypeSP.load()) {
     MountTypeSP.reset();
     MountTypeSP[MOUNT_EQ_FORK].setState(ISS_ON);
@@ -156,10 +161,10 @@ bool GapersScope::initProperties()
   IUFillNumber(&Eq2kN[1], "DEC", "DEC (dd:mm:ss)", "%010.6m", -90, 90, 0, 90);
   IUFillNumberVector(&Eq2kNP, Eq2kN, 2, getDefaultName(), "EQUATORIAL_COORD", "Eq. Coordinates J2000", MAIN_CONTROL_TAB, IP_RW, 60, IPS_IDLE);
 
-  // Dome auto-sync property
-  IUFillSwitch(&domesyncS[0], "AUTO", "Auto", ISS_ON);
-  IUFillSwitch(&domesyncS[1], "MANUAL", "Manual", ISS_OFF);
-  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDefaultName(), "DOME_AUTOSYNC", "Dome AutoSync", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
+  // Standard INDI dome autosync property.
+  IUFillSwitch(&domesyncS[0], "DOME_AUTOSYNC_ENABLE", "Enable", ISS_OFF);
+  IUFillSwitch(&domesyncS[1], "DOME_AUTOSYNC_DISABLE", "Disable", ISS_ON);
+  IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDefaultName(), "DOME_AUTOSYNC", "Slaving", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
   // Add Alt Az coordinates
   IUFillNumber(&AaN[0], "ALT", "Alt (dd:mm:ss)", "%010.6m", -90, 90, 0, 0);
@@ -173,20 +178,19 @@ bool GapersScope::initProperties()
   IUFillNumber(&telescopeInfoN[3], "GUIDER_FOCAL_LENGTH", "Guider focal length (mm)", "%7.2f", 0, 10000, 0, GUIDER_FOCAL_LENGTH_MM);
   IUFillNumberVector(&telescopeInfoNP, telescopeInfoN, 4, getDefaultName(), "TELESCOPE_INFO", "Telescope Info", MAIN_CONTROL_TAB, IP_RW, 60, IPS_IDLE);
 
-  // Dome azimuth and slew mode
-  IUFillNumber(&domeAzN[0], "DOME_ABSOLUTE_POSITION", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
-  IUFillNumberVector(&domeAzNP, domeAzN, 1, getDefaultName(), "DOME_ABSOLUTE_POSITION", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
+  // Standard INDI dome absolute position and sync properties.
+  IUFillNumber(&domeAzN[0], "DOME_ABSOLUTE_POSITION", "Degrees", "%6.2f", 0, 360, 0, 0);
+  IUFillNumberVector(&domeAzNP, domeAzN, 1, getDefaultName(), "ABS_DOME_POSITION", "Absolute Position", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
-  IUFillSwitch(&domeCoordS[0], "SLEW", "Slew", ISS_ON);
-  IUFillSwitch(&domeCoordS[1], "SYNC", "Sync", ISS_OFF);
-  IUFillSwitchVector(&domeCoordSP, domeCoordS, 2, getDefaultName(), "DOME_ON_COORD_SET", "On Set", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
+  IUFillNumber(&domeSyncN[0], "DOME_SYNC_VALUE", "Az", "%6.2f", 0, 360, 0, 0);
+  IUFillNumberVector(&domeSyncNP, domeSyncN, 1, getDefaultName(), "DOME_SYNC", "Sync", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
-  // Dome speed and azimuth threshold
-  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f", 0, 150, 0.01, 94.33);
-  IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDefaultName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
+  // Dome speed and auto-sync threshold follow the INDI dome standard names.
+  IUFillNumber(&domeSpeedN[0], "DOME_SPEED_VALUE", "RPM", "%6.2f", 0.01, 10, 0.01, 60.0 / 94.33);
+  IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDefaultName(), "DOME_SPEED", "Speed", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
-  IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f", 0, 10, 0.1, 2.0);
-  IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDefaultName(), "DOME_THRESHOLD", "Dome azimuth threshold ", DOME_TAB, IP_RW, 60, IPS_IDLE);
+  IUFillNumber(&domeAzThresholdN[0], "AUTOSYNC_THRESHOLD", "Autosync threshold (deg)", "%6.2f", 0, 360, 0.1, 2.0);
+  IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDefaultName(), "DOME_PARAMS", "Params", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   // Add debug/simulation/etc controls to the driver.
   addAuxControls();
@@ -199,11 +203,6 @@ bool GapersScope::initProperties()
 
   addSimulationControl();
   addDebugControl();
-
-  // Require an initial sync before motion: start ON_COORD_SET in SYNC mode.
-  IUResetSwitch(&domeCoordSP);
-  domeCoordS[0].s = ISS_OFF;  // SLEW - off
-  domeCoordS[1].s = ISS_ON;   // SYNC - on
 
   return true;
 }
@@ -342,7 +341,7 @@ bool GapersScope::Goto(double ra, double dec)
     FinalizeMove();
 
     // Actually move dome only if telescope is moving
-    auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+    auto domeAutoSw = IUFindSwitch(&domesyncSP, "DOME_AUTOSYNC_ENABLE");
     if ((domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON)) {
       DomeGoto(psn.az);
     }
@@ -364,7 +363,7 @@ bool GapersScope::Goto(double ra, double dec)
     NewRaDec(currentRA, currentDEC);
     
     // If Dome in auto mode, sync dome to telescope azimuth
-    auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+    auto domeAutoSw = IUFindSwitch(&domesyncSP, "DOME_AUTOSYNC_ENABLE");
     if ((domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON)) {
       DomeSync(psn.az);
     }
@@ -400,7 +399,8 @@ bool GapersScope::DomeGoto(double az) {
   fs_sexa(azDistStr, azDist, 2, 3600);
   DEBUGF(INDI::Logger::DBG_SESSION, "Moving dome %s degrees.", azDistStr);
 
-  long movTime = static_cast<long> ((( domeSpeedN[0].value / 360.0 ) * azDist * 1000.0) + 0.5);
+  const double fullSpinSeconds = domeRpmToFullSpinSeconds(domeSpeedN[0].value);
+  long movTime = static_cast<long> ((( fullSpinSeconds / 360.0 ) * azDist * 1000.0) + 0.5);
   // Disable dome manual commands
   DomeManualEnable(false);
   // Tell dome to move
@@ -409,6 +409,7 @@ bool GapersScope::DomeGoto(double az) {
   SendCommand( '2', 5, 1);
 
   DomeTrackState = DOME_SLEWING;
+  domeAzN[0].value = domeTargetAZ;
   domeAzNP.s = IPS_BUSY;
   IDSetNumber(&domeAzNP, NULL);
 
@@ -441,6 +442,9 @@ bool GapersScope::DomeSync(double az) {
   domeAzN[0].value = domeCurrentAZ = az;
   domeAzNP.s = IPS_OK;
   IDSetNumber(&domeAzNP, NULL);
+  domeSyncN[0].value = az;
+  domeSyncNP.s = IPS_OK;
+  IDSetNumber(&domeSyncNP, NULL);
   return true;
 }
 /**************************************************************************************
@@ -578,7 +582,8 @@ bool GapersScope::ReadScopeStatus()
       break;
   }
   if (DomeTrackState == DOME_SLEWING) {
-    domeAzN[0].value = domeTargetAZ - (rangeDistance(domeTargetAZ - domeCurrentAZ) > 0 ? 1 : -1) * ((domeMovementEnd - time(NULL)) / (domeSpeedN[0].value / 360.0));
+    const double fullSpinSeconds = domeRpmToFullSpinSeconds(domeSpeedN[0].value);
+    domeAzN[0].value = domeTargetAZ - (rangeDistance(domeTargetAZ - domeCurrentAZ) > 0 ? 1 : -1) * ((domeMovementEnd - time(NULL)) / (fullSpinSeconds / 360.0));
     while(domeAzN[0].value >= 360.) domeAzN[0].value -= 360.;
     while(domeAzN[0].value < 0.) domeAzN[0].value += 360.;
     if (isSimulation() && (time(NULL) > domeMovementEnd)) {
@@ -606,7 +611,7 @@ bool GapersScope::ReadScopeStatus()
 
   // If telescope is not moving and aim azimuth is more distant than threshold from
   // dome azimuth, and dome control is in auto, then move dome accordingly
-  auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+  auto domeAutoSw = IUFindSwitch(&domesyncSP, "DOME_AUTOSYNC_ENABLE");
   const bool domeAutoOn = (domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON);
   if (domeAutoOn) {
     if (initialSyncCompleted && (TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThresholdN[0].value)) {
@@ -697,7 +702,7 @@ bool GapersScope::Sync(double ra, double dec)
   psn.az = normalizeAz(psn.az + 180.);
   NewAltAz(psn.alt, psn.az);
 
-  auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+  auto domeAutoSw = IUFindSwitch(&domesyncSP, "DOME_AUTOSYNC_ENABLE");
   const bool domeAutoOn = (domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON);
   if (domeAutoOn) {
     bool rc = DomeSync(psn.az);
@@ -731,9 +736,14 @@ void GapersScope::ISGetProperties (const char *dev) {
     // Add dome properties
     defineProperty(&domesyncSP);
     defineProperty(&domeAzNP);
-    defineProperty(&domeCoordSP);
+    defineProperty(&domeSyncNP);
     defineProperty(&domeSpeedNP);
     defineProperty(&domeAzThresholdNP);
+
+    loadConfig(true, telescopeInfoNP.name);
+    loadConfig(true, domesyncSP.name);
+    loadConfig(true, domeSpeedNP.name);
+    loadConfig(true, domeAzThresholdNP.name);
   }
 }
 
@@ -749,6 +759,12 @@ bool GapersScope::updateProperties()
   deleteProperty(MotionControlModeTP);
   deleteProperty(LockAxisSP);
 
+  // La cupola è integrata nel driver: rimuovi la Dome Policy del telescopio
+  // (serve solo per sincronizzarsi con un driver cupola esterno) e la proprietà
+  // ACTIVE_DEVICES, così Ekos non tenta di collegare un dome driver separato.
+  deleteProperty(DomePolicySP);
+  deleteProperty(ActiveDeviceTP);
+
   if(isConnected())
   {
     defineProperty(&Eq2kNP);
@@ -756,9 +772,14 @@ bool GapersScope::updateProperties()
     defineProperty(&telescopeInfoNP);
     defineProperty(&domesyncSP);
     defineProperty(&domeAzNP);
-    defineProperty(&domeCoordSP);
+    defineProperty(&domeSyncNP);
     defineProperty(&domeSpeedNP);
     defineProperty(&domeAzThresholdNP);
+
+    loadConfig(true, telescopeInfoNP.name);
+    loadConfig(true, domesyncSP.name);
+    loadConfig(true, domeSpeedNP.name);
+    loadConfig(true, domeAzThresholdNP.name);
   }
   else
   {
@@ -767,7 +788,7 @@ bool GapersScope::updateProperties()
     deleteProperty(telescopeInfoNP.name);
     deleteProperty(domesyncSP.name);
     deleteProperty(domeAzNP.name);
-    deleteProperty(domeCoordSP.name);
+    deleteProperty(domeSyncNP.name);
     deleteProperty(domeSpeedNP.name);
     deleteProperty(domeAzThresholdNP.name);
   }
@@ -778,9 +799,12 @@ bool GapersScope::updateProperties()
 bool GapersScope::saveConfigItems(FILE *fp) {
   IUSaveConfigNumber(fp, &telescopeInfoNP);
   IUSaveConfigSwitch(fp, &domesyncSP);
-  IUSaveConfigSwitch(fp, &domeCoordSP);
   IUSaveConfigNumber(fp, &domeSpeedNP);
   IUSaveConfigNumber(fp, &domeAzThresholdNP);
+
+  // Salva ACTIVE_DEVICES con valori vuoti: al prossimo avvio load() leggerà
+  // stringhe vuote e IDSnoopDevice("", ...) non registrerà snoop su driver esterni.
+  ActiveDeviceTP.save(fp);
 
   bool rc = INDI::Telescope::saveConfigItems(fp);
   return rc;
@@ -849,9 +873,9 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
 
     bool rc=false;
     double az=-1;
-    if(strcmp(name,"DOME_THRESHOLD")==0) {
+    if(strcmp(name,"DOME_PARAMS")==0) {
       for (int x=0; x<n; x++) {
-        if (!strcmp(names[x], "THRESHOLD")) {
+        if (!strcmp(names[x], "AUTOSYNC_THRESHOLD")) {
           domeAzThresholdN[0].value = values[x];
         }
       }
@@ -861,7 +885,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       return true;
     } else if(strcmp(name,"DOME_SPEED")==0) {
       for (int x=0; x<n; x++) {
-        if (!strcmp(names[x], "PERIOD")) {
+        if (!strcmp(names[x], "DOME_SPEED_VALUE")) {
           domeSpeedN[0].value = values[x];
         }
       }
@@ -869,8 +893,26 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       IDSetNumber(&domeSpeedNP, NULL);
       saveConfig(true, domeSpeedNP.name);
       return true;
-    } else if(strcmp(name,"DOME_ABSOLUTE_POSITION")==0) {
-      auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+    } else if(strcmp(name,"DOME_SYNC")==0) {
+      for (int x=0; x<n; x++) {
+        if (!strcmp(names[x], "DOME_SYNC_VALUE")) {
+          az = values[x];
+        }
+      }
+      if ((az >= 0) && (az <= 360)) {
+        rc = DomeSync(az);
+        if (rc)
+          domeSyncNP.s = IPS_OK;
+        else
+          domeSyncNP.s = IPS_ALERT;
+        IDSetNumber(&domeSyncNP, NULL);
+        return rc;
+      }
+      domeSyncNP.s = IPS_ALERT;
+      IDSetNumber(&domeSyncNP, NULL);
+      return false;
+    } else if(strcmp(name,"ABS_DOME_POSITION")==0) {
+      auto domeAutoSw = IUFindSwitch(&domesyncSP, "DOME_AUTOSYNC_ENABLE");
       if (domeAutoSw != nullptr && domeAutoSw->s == ISS_ON) {
         DEBUG(INDI::Logger::DBG_WARNING, "Cannot set azimuth while in auto mode.");
         domeAzNP.s = IPS_OK;
@@ -883,17 +925,6 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         }
       }
       if ((az >= 0) && (az <= 360)) {
-        auto domeSyncSw = IUFindSwitch(&domeCoordSP, "SYNC");
-        const bool domeSyncMode = (domeSyncSw != nullptr) && (domeSyncSw->s == ISS_ON);
-        if (domeSyncMode) {
-          rc = DomeSync(az);
-          if (rc)
-            domeAzNP.s = IPS_OK;
-          else
-            domeAzNP.s = IPS_ALERT;
-          IDSetNumber(&domeAzNP, NULL);
-          return rc;
-        }
         domeTargetAZ = az;
         rc = DomeGoto(az);
         if (rc)
@@ -1021,14 +1052,6 @@ bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *state
       return true;
     }
 
-    //  This one is for us
-    if(!strcmp(domeCoordSP.name, name)) {
-      //  client is telling us what to do with co-ordinate requests
-      IUUpdateSwitch(&domeCoordSP, states, names, n);
-      domeCoordSP.s = IPS_OK;
-      IDSetSwitch(&domeCoordSP, NULL);
-      return true;
-    }
     // Dome position in sync with telescope
     if (!strcmp(domesyncSP.name, name)) {
       IUUpdateSwitch(&domesyncSP, states, names, n);

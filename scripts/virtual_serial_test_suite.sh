@@ -172,7 +172,7 @@ sleep 1
 STATE_SIM="$(read_state)"
 assert_equals "Ok" "$STATE_SIM" "Simulation connect"
 
-# Test 2: custom properties availability + get/set (no config save)
+# Test 2: custom + standard properties availability + get/set (no config save)
 assert_prop_exists "GAPers Telescope.EQUATORIAL_COORD.RA" "EQUATORIAL_COORD.RA"
 assert_prop_exists "GAPers Telescope.EQUATORIAL_COORD.DEC" "EQUATORIAL_COORD.DEC"
 assert_prop_exists "GAPers Telescope.ALTAZ_COORD.ALT" "ALTAZ_COORD.ALT"
@@ -181,16 +181,15 @@ assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_APERTURE" "TELESCO
 assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_FOCAL_LENGTH" "TELESCOPE_INFO.TELESCOPE_FOCAL_LENGTH"
 assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.GUIDER_APERTURE" "TELESCOPE_INFO.GUIDER_APERTURE"
 assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.GUIDER_FOCAL_LENGTH" "TELESCOPE_INFO.GUIDER_FOCAL_LENGTH"
-assert_prop_exists "GAPers Telescope.DOME_AUTOSYNC.AUTO" "DOME_AUTOSYNC.AUTO"
-assert_prop_exists "GAPers Telescope.DOME_AUTOSYNC.MANUAL" "DOME_AUTOSYNC.MANUAL"
-assert_prop_exists "GAPers Telescope.DOME_ABSOLUTE_POSITION.DOME_ABSOLUTE_POSITION" "DOME_ABSOLUTE_POSITION.DOME_ABSOLUTE_POSITION"
-assert_prop_exists "GAPers Telescope.DOME_ON_COORD_SET.SLEW" "DOME_ON_COORD_SET.SLEW"
-assert_prop_exists "GAPers Telescope.DOME_ON_COORD_SET.SYNC" "DOME_ON_COORD_SET.SYNC"
-assert_prop_exists "GAPers Telescope.DOME_SPEED.PERIOD" "DOME_SPEED.PERIOD"
-assert_prop_exists "GAPers Telescope.DOME_THRESHOLD.THRESHOLD" "DOME_THRESHOLD.THRESHOLD"
+assert_prop_exists "GAPers Telescope.DOME_AUTOSYNC.DOME_AUTOSYNC_ENABLE" "DOME_AUTOSYNC.DOME_AUTOSYNC_ENABLE"
+assert_prop_exists "GAPers Telescope.DOME_AUTOSYNC.DOME_AUTOSYNC_DISABLE" "DOME_AUTOSYNC.DOME_AUTOSYNC_DISABLE"
+assert_prop_exists "GAPers Telescope.ABS_DOME_POSITION.DOME_ABSOLUTE_POSITION" "ABS_DOME_POSITION.DOME_ABSOLUTE_POSITION"
+assert_prop_exists "GAPers Telescope.DOME_SYNC.DOME_SYNC_VALUE" "DOME_SYNC.DOME_SYNC_VALUE"
+assert_prop_exists "GAPers Telescope.DOME_SPEED.DOME_SPEED_VALUE" "DOME_SPEED.DOME_SPEED_VALUE"
+assert_prop_exists "GAPers Telescope.DOME_PARAMS.AUTOSYNC_THRESHOLD" "DOME_PARAMS.AUTOSYNC_THRESHOLD"
 
-# Force manual dome mode so azimuth writes are accepted.
-indi_setprop "GAPers Telescope.DOME_AUTOSYNC.MANUAL=On"
+# Disable dome autosync so direct dome commands are accepted.
+indi_setprop "GAPers Telescope.DOME_AUTOSYNC.DOME_AUTOSYNC_DISABLE=On"
 
 indi_setprop "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_APERTURE=381.0;TELESCOPE_FOCAL_LENGTH=2001.0;GUIDER_APERTURE=50.0;GUIDER_FOCAL_LENGTH=240.0"
 assert_numeric_close 381.0 "$(get_prop_value "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_APERTURE")" 0.01 "Set TELESCOPE_APERTURE"
@@ -199,21 +198,21 @@ assert_numeric_close 50.0 "$(get_prop_value "GAPers Telescope.TELESCOPE_INFO.GUI
 assert_numeric_close 240.0 "$(get_prop_value "GAPers Telescope.TELESCOPE_INFO.GUIDER_FOCAL_LENGTH")" 0.01 "Set GUIDER_FOCAL_LENGTH"
 assert_state_not_alert "GAPers Telescope.TELESCOPE_INFO._STATE" "TELESCOPE_INFO"
 
-indi_setprop "GAPers Telescope.DOME_ON_COORD_SET.SYNC=On"
-assert_equals "On" "$(get_prop_value "GAPers Telescope.DOME_ON_COORD_SET.SYNC")" "Set DOME_ON_COORD_SET.SYNC"
-assert_state_not_alert "GAPers Telescope.DOME_ON_COORD_SET._STATE" "DOME_ON_COORD_SET"
-
-indi_setprop "GAPers Telescope.DOME_SPEED.PERIOD=100.0"
-assert_numeric_close 100.0 "$(get_prop_value "GAPers Telescope.DOME_SPEED.PERIOD")" 0.01 "Set DOME_SPEED.PERIOD"
+indi_setprop "GAPers Telescope.DOME_SPEED.DOME_SPEED_VALUE=0.60"
+assert_numeric_close 0.60 "$(get_prop_value "GAPers Telescope.DOME_SPEED.DOME_SPEED_VALUE")" 0.01 "Set DOME_SPEED.DOME_SPEED_VALUE"
 assert_state_not_alert "GAPers Telescope.DOME_SPEED._STATE" "DOME_SPEED"
 
-indi_setprop "GAPers Telescope.DOME_THRESHOLD.THRESHOLD=3.5"
-assert_numeric_close 3.5 "$(get_prop_value "GAPers Telescope.DOME_THRESHOLD.THRESHOLD")" 0.01 "Set DOME_THRESHOLD.THRESHOLD"
-assert_state_not_alert "GAPers Telescope.DOME_THRESHOLD._STATE" "DOME_THRESHOLD"
+indi_setprop "GAPers Telescope.DOME_PARAMS.AUTOSYNC_THRESHOLD=3.5"
+assert_numeric_close 3.5 "$(get_prop_value "GAPers Telescope.DOME_PARAMS.AUTOSYNC_THRESHOLD")" 0.01 "Set DOME_PARAMS.AUTOSYNC_THRESHOLD"
+assert_state_not_alert "GAPers Telescope.DOME_PARAMS._STATE" "DOME_PARAMS"
 
-indi_setprop "GAPers Telescope.DOME_ABSOLUTE_POSITION.DOME_ABSOLUTE_POSITION=123.0"
-assert_numeric_close 123.0 "$(get_prop_value "GAPers Telescope.DOME_ABSOLUTE_POSITION.DOME_ABSOLUTE_POSITION")" 0.5 "Set DOME_ABSOLUTE_POSITION"
-assert_state_not_alert "GAPers Telescope.DOME_ABSOLUTE_POSITION._STATE" "DOME_ABSOLUTE_POSITION"
+indi_setprop "GAPers Telescope.DOME_SYNC.DOME_SYNC_VALUE=123.0"
+assert_numeric_close 123.0 "$(get_prop_value "GAPers Telescope.DOME_SYNC.DOME_SYNC_VALUE")" 0.01 "Set DOME_SYNC.DOME_SYNC_VALUE"
+assert_state_not_alert "GAPers Telescope.DOME_SYNC._STATE" "DOME_SYNC"
+
+indi_setprop "GAPers Telescope.ABS_DOME_POSITION.DOME_ABSOLUTE_POSITION=140.0"
+assert_numeric_close 140.0 "$(get_prop_value "GAPers Telescope.ABS_DOME_POSITION.DOME_ABSOLUTE_POSITION")" 0.5 "Set ABS_DOME_POSITION"
+assert_state_not_alert "GAPers Telescope.ABS_DOME_POSITION._STATE" "ABS_DOME_POSITION"
 
 # Keep ON_COORD_SET in SYNC and issue an initial sync through EQUATORIAL_COORD.
 indi_setprop "GAPers Telescope.ON_COORD_SET.SYNC=On"
