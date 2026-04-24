@@ -467,6 +467,31 @@ bool GapersScope::Abort()
   initialSyncCompleted = false;
   TrackState = SCOPE_IDLE;
 
+  // Stop dome: discard any pending movement and sync it to the current telescope azimuth.
+  if (DomeTrackState == DOME_SLEWING) {
+    // Flush the write queue so no further dome commands are sent.
+    _writequeue = std::queue<std::string>();
+    DomeTrackState = DOME_IDLE;
+  }
+  // Compute current telescope azimuth and sync the dome to it.
+  {
+    ln_equ_posn eqc;
+    ln_lnlat_posn eqa;
+    ln_hrz_posn psn;
+    eqc.ra  = currentRA * 15.0;
+    eqc.dec = currentDEC;
+    eqa.lng = m_Location.longitude;
+    if (eqa.lng > 180.) eqa.lng -= 360.;
+    eqa.lat = m_Location.latitude;
+    ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
+    psn.az = normalizeAz(psn.az + 180.);
+    domeCurrentAZ = psn.az;
+    domeAzN[0].value = psn.az;
+    domeAzNP.s = IPS_IDLE;
+    IDSetNumber(&domeAzNP, NULL);
+    DEBUG(INDI::Logger::DBG_SESSION, "Dome synced to current telescope azimuth after abort.");
+  }
+
   // After abort, require a fresh sync exactly like at startup.
   CoordSP.reset();
   auto *syncSw = CoordSP.findWidgetByName("SYNC");
@@ -549,7 +574,7 @@ bool GapersScope::ReadScopeStatus()
   auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
   const bool domeAutoOn = (domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON);
   if (domeAutoOn) {
-    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThresholdN[0].value)) {
+    if (initialSyncCompleted && (TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThresholdN[0].value)) {
       char azStr[64];
       fs_sexa(azStr, psn.az, 2, 3600);
       DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThresholdN[0].value);
