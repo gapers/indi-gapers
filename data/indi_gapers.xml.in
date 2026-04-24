@@ -3,7 +3,7 @@
    <devGroup group="Telescopes">
       <device label="GAPers Telescope" manufacturer="Gruppo Astrofili Persicetani">
          <driver name="GAPers Telescope">indi_gapers</driver>
-         <version>@CDRIVER_VERSION_MAJOR@.@CDRIVER_VERSION_MINOR@</version>
+         <version>@PROJECT_VERSION@</version>
       </device>
    </devGroup>
 </driversList>

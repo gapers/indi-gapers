@@ -1,14 +1,15 @@
 /*
 GAPers Telescope driver
 
-Copyright (C) 2024 Massimiliano Masserelli
-Copyright (C) 2024 Gruppo Astrofili Persicetani
+Copyright (C) 2026 Massimiliano Masserelli
+Copyright (C) 2026 Gruppo Astrofili Persicetani
 Copyright (C) 2014 Maurizio Serrazanetti
 */
 
 #include "indicom.h"
 #include "indilogger.h"
 #include "indi-gapers.h"
+#include "gapers_math.h"
 #include "libindi/connectionplugins/connectionserial.h"
 
 #include <libnova/libnova.h>
@@ -19,24 +20,24 @@ Copyright (C) 2014 Maurizio Serrazanetti
 #include <termios.h>
 #include <unistd.h>
 
-
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
-#include <math.h>
 #include "config.h"
-
-#define PARITY_NONE 0
-#define PARITY_EVEN 1
-#define PARITY_ODD  2
-
-const float SIDRATE = 0.004178;                /* sidereal rate, degrees/s */
-const int   SLEW_RATE = 15;                    /* slew rate, degrees/s */
-//const int   POLLMS = 250;                      /* poll period, ms */
 
 const char *DOME_TAB = "Cupola";
 
-// std::auto_ptr<GapersScope> gapersScope(0);
+namespace
+{
+constexpr double GABETTI_LATITUDE_DEG = 44.63571;
+constexpr double GABETTI_LONGITUDE_DEG_EAST = 11.18273;
+constexpr double GABETTI_ELEVATION_M = 24.0;
+constexpr double OTA_APERTURE_MM = 380.0;
+constexpr double OTA_FOCAL_LENGTH_MM = 2000.0;
+constexpr double GUIDER_APERTURE_MM = 0.0;
+constexpr double GUIDER_FOCAL_LENGTH_MM = 0.0;
+}
+
 static std::unique_ptr<GapersScope> gapersScope(new GapersScope());
 
 /**************************************************************************************
@@ -44,14 +45,7 @@ static std::unique_ptr<GapersScope> gapersScope(new GapersScope());
 ***************************************************************************************/
 void ISInit()
 {
-  static int isInit=0;
-  if (isInit)
-  return;
-  if (gapersScope.get() == 0)
-  {
-    isInit = 1;
-    gapersScope.reset(new GapersScope());
-  }
+  // gapersScope è inizializzato staticamente; nulla da fare.
 }
 /**************************************************************************************
 ** Return properties of device.
@@ -104,13 +98,22 @@ void ISSnoopDevice (XMLEle *root)
 GapersScope::GapersScope()
 {
   setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
+  LOGF_INFO("Driver version: %s", CDRIVER_VERSION_STR);
   currentRA  = 0;
   currentDEC = 90;
-  // We add an additional debug level so we can log verbose scope status
-  DBG_SCOPE = INDI::Logger::getInstance().addDebugLevel("Scope Verbose", "SCOPE");
-  
+  initialSyncCompleted = false;
+
+  // This mount is controlled only via serial PLC link.
+  setTelescopeConnection(CONNECTION_SERIAL);
+
+  // Mount does not support parking facilities.
+  SetParkDataType(PARK_NONE);
+
+  // Default polling period (used when no saved config exists).
+  setDefaultPollingPeriod(250);
+
   // Set telescope capabilities
-  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0); 
+  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0);
 
 }
 /**************************************************************************************
@@ -121,32 +124,63 @@ bool GapersScope::initProperties()
   // ALWAYS call initProperties() of parent first
   INDI::Telescope::initProperties();
 
-  // Add J2K Coordinates handler
-  IUFillNumber(&Eq2kN[AXIS_RA],"RA","RA (hh:mm:ss)","%010.6m",0,24,0,0);
-  IUFillNumber(&Eq2kN[AXIS_DE],"DEC","DEC (dd:mm:ss)","%010.6m",-90,90,0,0);
-  IUFillNumberVector(&Eq2kNP,Eq2kN,2,getDefaultName(),"EQUATORIAL_COORD","Eq. Coordinates J2000",MAIN_CONTROL_TAB,IP_RW,60,IPS_IDLE);
+  // Default mount type: Equatorial German Mount.
+  if (!MountTypeSP.load()) {
+    MountTypeSP.reset();
+    MountTypeSP[MOUNT_EQ_GEM].setState(ISS_ON);
+  }
 
-  // Dome properties
+  // Site defaults for Osservatorio G.Abetti (used only if no saved config exists).
+  if (!LocationNP.load()) {
+    LocationNP[LOCATION_LATITUDE].setValue(GABETTI_LATITUDE_DEG);
+    LocationNP[LOCATION_LONGITUDE].setValue(GABETTI_LONGITUDE_DEG_EAST);
+    LocationNP[LOCATION_ELEVATION].setValue(GABETTI_ELEVATION_M);
+    updateObserverLocation(GABETTI_LATITUDE_DEG, GABETTI_LONGITUDE_DEG_EAST, GABETTI_ELEVATION_M);
+  }
+
+  // Default ON_COORD_SET to SYNC if not already configured.
+  if (!CoordSP.load()) {
+    CoordSP.reset();
+    auto *syncSw = CoordSP.findWidgetByName("SYNC");
+    if (syncSw != nullptr)
+      syncSw->setState(ISS_ON);
+  }
+
+  // Add J2K Coordinates handler
+  IUFillNumber(&Eq2kN[0], "RA", "RA (hh:mm:ss)", "%010.6m", 0, 24, 0, 0);
+  IUFillNumber(&Eq2kN[1], "DEC", "DEC (dd:mm:ss)", "%010.6m", -90, 90, 0, 90);
+  IUFillNumberVector(&Eq2kNP, Eq2kN, 2, getDefaultName(), "EQUATORIAL_COORD", "Eq. Coordinates J2000", MAIN_CONTROL_TAB, IP_RW, 60, IPS_IDLE);
+
+  // Dome auto-sync property
   IUFillSwitch(&domesyncS[0], "AUTO", "Auto", ISS_ON);
   IUFillSwitch(&domesyncS[1], "MANUAL", "Manual", ISS_OFF);
   IUFillSwitchVector(&domesyncSP, domesyncS, 2, getDefaultName(), "DOME_MOVEMENT", "Dome Movement", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
   // Add Alt Az coordinates
-  IUFillNumber(&AaN[AXIS_ALT], "ALT", "Alt (dd:mm:ss)","%010.6m",-90,90,0,0);
-  IUFillNumber(&AaN[AXIS_AZ], "AZ", "Az (dd:mm:ss)","%010.6m",0,360,0,0);
-  IUFillNumberVector(&AaNP,AaN,2,getDefaultName(),"ALTAZ_COORD","AltAzimuthal Coordinates",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
+  IUFillNumber(&AaN[0], "ALT", "Alt (dd:mm:ss)", "%010.6m", -90, 90, 0, 0);
+  IUFillNumber(&AaN[1], "AZ", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
+  IUFillNumberVector(&AaNP, AaN, 2, getDefaultName(), "ALTAZ_COORD", "AltAzimuthal Coordinates", MAIN_CONTROL_TAB, IP_RO, 60, IPS_IDLE);
 
-  IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m",0,360,0,0);
+  // Optical defaults: OTA 380/2000mm, no guider.
+  IUFillNumber(&telescopeInfoN[0], "TELESCOPE_APERTURE", "Telescope aperture (mm)", "%7.2f", 0, 2000, 0, OTA_APERTURE_MM);
+  IUFillNumber(&telescopeInfoN[1], "TELESCOPE_FOCAL_LENGTH", "Telescope focal length (mm)", "%7.2f", 0, 10000, 0, OTA_FOCAL_LENGTH_MM);
+  IUFillNumber(&telescopeInfoN[2], "GUIDER_APERTURE", "Guider aperture (mm)", "%7.2f", 0, 2000, 0, GUIDER_APERTURE_MM);
+  IUFillNumber(&telescopeInfoN[3], "GUIDER_FOCAL_LENGTH", "Guider focal length (mm)", "%7.2f", 0, 10000, 0, GUIDER_FOCAL_LENGTH_MM);
+  IUFillNumberVector(&telescopeInfoNP, telescopeInfoN, 4, getDefaultName(), "TELESCOPE_INFO", "Telescope Info", MAIN_CONTROL_TAB, IP_RW, 60, IPS_IDLE);
+
+  // Dome azimuth and slew mode
+  IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
   IUFillNumberVector(&domeAzNP, domeAzN, 1, getDefaultName(), "DOME_AZIMUTH", "Dome Azimuth", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
-  IUFillSwitch(&domeCoordS[0],"SLEW","Slew",ISS_ON);
-  IUFillSwitch(&domeCoordS[1],"SYNC","Sync",ISS_OFF);
-  IUFillSwitchVector(&domeCoordSP,domeCoordS,2,getDefaultName(),"DOME_ON_COORD_SET","On Set",DOME_TAB,IP_RW,ISR_1OFMANY,60,IPS_IDLE);
+  IUFillSwitch(&domeCoordS[0], "SLEW", "Slew", ISS_ON);
+  IUFillSwitch(&domeCoordS[1], "SYNC", "Sync", ISS_OFF);
+  IUFillSwitchVector(&domeCoordSP, domeCoordS, 2, getDefaultName(), "DOME_ON_COORD_SET", "On Set", DOME_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);
 
-  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f",0,150,0.01,94.33);
+  // Dome speed and azimuth threshold
+  IUFillNumber(&domeSpeedN[0], "PERIOD", "Seconds for a full spin", "%10.4f", 0, 150, 0.01, 94.33);
   IUFillNumberVector(&domeSpeedNP, domeSpeedN, 1, getDefaultName(), "DOME_SPEED", "Dome rotation speed ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
-  IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f",0,10,0.1,2.0);
+  IUFillNumber(&domeAzThresholdN[0], "THRESHOLD", "Azimuth threshold", "%5.2f", 0, 10, 0.1, 2.0);
   IUFillNumberVector(&domeAzThresholdNP, domeAzThresholdN, 1, getDefaultName(), "DOME_THRESHOLD", "Dome azimuth threshold ", DOME_TAB, IP_RW, 60, IPS_IDLE);
 
   // Add debug/simulation/etc controls to the driver.
@@ -160,6 +194,12 @@ bool GapersScope::initProperties()
 
   addSimulationControl();
   addDebugControl();
+
+  // Require an initial sync before motion: start ON_COORD_SET in SYNC mode.
+  IUResetSwitch(&domeCoordSP);
+  domeCoordS[0].s = ISS_OFF;  // SLEW - off
+  domeCoordS[1].s = ISS_ON;   // SYNC - on
+
   return true;
 }
 
@@ -168,6 +208,19 @@ bool GapersScope::Handshake() {
     LOGF_INFO("Connected successfully to simulated %s", getDeviceName());
     return true;
   }
+
+  // Keep serial I/O non-blocking since commHandler() is polled by TimerHit().
+  int flags = fcntl(PortFD, F_GETFL, 0);
+  if (flags == -1 || fcntl(PortFD, F_SETFL, flags | O_NONBLOCK) == -1) {
+    LOGF_ERROR("Failed to configure non-blocking I/O on %s: %s", serialConnection->port(), strerror(errno));
+    return false;
+  }
+
+  int newFlags = fcntl(PortFD, F_GETFL, 0);
+  if (newFlags == -1)
+    LOGF_WARN("Cannot read serial flags after non-blocking setup on %s: %s", serialConnection->port(), strerror(errno));
+  else
+    LOGF_DEBUG("Serial fd %d flags after handshake: 0x%X (O_NONBLOCK=%s)", PortFD, newFlags, (newFlags & O_NONBLOCK) ? "ON" : "OFF");
 
   // TODO: Any initial communication needed with our device; we have an active
   // connection with a valid file descriptor called PortFD. This file descriptor
@@ -182,11 +235,13 @@ bool GapersScope::Handshake() {
   cmdEchoTimeout = 0;
 
   // initialize telescope and dome status
+  // A serial reconnect implies a physical reset of the mount: require a new sync.
+  initialSyncCompleted = false;
   TrackState = SCOPE_TRACKING;
   DomeTrackState = DOME_IDLE;
 
   // Let's set a timer that checks telescopes status every POLLMS milliseconds.
-  SetTimer(POLLMS);
+  SetTimer(getCurrentPollingPeriod());
 
   return true;
 }
@@ -201,7 +256,7 @@ void GapersScope::TimerHit() {
   ReadScopeStatus();
 
   // Let's set a timer that checks telescopes status every POLLMS milliseconds.
-  SetTimer(POLLMS);
+  SetTimer(getCurrentPollingPeriod());
 
 }
 
@@ -232,13 +287,11 @@ bool GapersScope::Goto(double ra, double dec)
 
   eqc.ra = targetRA * 15.0;
   eqc.dec = targetDEC;
-  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  eqa.lng = m_Location.longitude;
   if (eqa.lng > 180.) eqa.lng -= 360.;
-  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  psn.az += 180.;
-  while (psn.az >= 360.) psn.az -= 360.;
-  while (psn.az < 0.) psn.az += 360.;
+  psn.az = normalizeAz(psn.az + 180.);
 
   char RAStr[64], DecStr[64];
   // Parse the RA/DEC into strings
@@ -284,7 +337,8 @@ bool GapersScope::Goto(double ra, double dec)
     FinalizeMove();
 
     // Actually move dome only if telescope is moving
-    if (domesyncS[0].s == ISS_ON) {
+    auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+    if ((domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON)) {
       DomeGoto(psn.az);
     }
 
@@ -297,8 +351,19 @@ bool GapersScope::Goto(double ra, double dec)
     // Inform client we are slewing to a new position
     DEBUGF(INDI::Logger::DBG_SESSION, "Slewing to RA: %s - DEC: %s", RAStr, DecStr);
   } else {
-    DEBUG(INDI::Logger::DBG_SESSION, "BAZINGA! Nothing is actually moving.");
-    return false;
+    DEBUG(INDI::Logger::DBG_SESSION, "Null movement: coordinates already at target position.");
+    // Close movement as if it was already executed
+    currentRA = targetRA;
+    currentDEC = targetDEC;
+    TrackState = SCOPE_TRACKING;
+    NewRaDec(currentRA, currentDEC);
+    
+    // If Dome in auto mode, sync dome to telescope azimuth
+    auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+    if ((domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON)) {
+      DomeSync(psn.az);
+    }
+    return true;
   }
 
   char raDistStr[64];
@@ -439,26 +504,22 @@ bool GapersScope::ReadScopeStatus()
 
   eqc.ra = currentRA * 15.0;
   eqc.dec = currentDEC;
-  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  eqa.lng = m_Location.longitude;
   if (eqa.lng > 180.) eqa.lng -= 360.;
-  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
-  psn.az += 180.;
-  while (psn.az >= 360.) psn.az -= 360.;
-  while (psn.az < 0.) psn.az += 360.;
+  psn.az = normalizeAz(psn.az + 180.);
   NewAltAz(psn.alt, psn.az);
 
   // If telescope is not moving and aim azimuth is more distant than threshold from
   // dome azimuth, and dome control is in auto, then move dome accordingly
-  ISwitch *sw;
-  sw=IUFindSwitch(&domesyncSP,"AUTO");
-  if((sw != NULL)&&( sw->s==ISS_ON )) {
-    domeAzThreshold = domeAzThresholdN[0].value;
-    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThreshold)) {
+  auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+  const bool domeAutoOn = (domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON);
+  if (domeAutoOn) {
+    if ((TrackState != SCOPE_SLEWING) && (DomeTrackState == DOME_IDLE) && (psn.alt <= 87.0) && (fabs(rangeDistance(psn.az - domeCurrentAZ)) > domeAzThresholdN[0].value)) {
       char azStr[64];
       fs_sexa(azStr, psn.az, 2, 3600);
-      DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThreshold);
+      DEBUGF(INDI::Logger::DBG_SESSION, "Auto-moving dome to %s, thresh %f", azStr, domeAzThresholdN[0].value);
       DomeGoto(psn.az);
     }
   }
@@ -468,119 +529,41 @@ bool GapersScope::ReadScopeStatus()
   return true;
 }
 
+double GapersScope::_calcMoveTime(double steps, double vp, double rs) const {
+  return GapersMath::calcMoveTime(steps, vp, rs);
+}
+
+double GapersScope::normalizeAz(double az) {
+  return GapersMath::normalizeAz(az);
+}
+
 bool GapersScope::_setMoveDataRA( double distance ) {
-  // Durante lo spostamento in ascensione retta occorre compensare il moto
-  // siderale che si manifesta nel tempo necessario al movimento dell'asse.
-
-  // Costanti usate nel calcolo
-  const double vs = 919.456; // Velocità moto siderale in passi per secondo
-  const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
-  const double spd = 220088.2; // Passi motore per grado di spostamento asse
-  const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
-  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
-  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
-  // rampa lineare il valore dovrebbe essere accurato.
-  const double tr = rs / ((vp-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
-
-  // Variabili d'appoggio
-  double tm = 0; // Tempo necessario allo spostamento dell'asse
-  double correction = 0; // Passi necessari a compensare il moto siderale occorso durante lo spostamento
-
-  // La componente del moto siderale è sempre positiva (da est ad ovest),
-  // pertanto consideriamo il valore assoluto del numero di passi necessari
-  // per lo spostamento, memorizzando la direzione per potere alla fine
-  // effettuare la correzione nella giusta direzione.
-  int direction = ( distance > 0 ? 1 : -1);
-  double steps = fabs( distance ) * spd;
-
-  if ( steps > rs ) {
-    // Il movimento richiesto è superiore ai passi necessari per completare
-    // le rampe di accelerazione e decellerazione dei motori. Viene calcolata
-    // la correzione da applicare per il moto siderale considerando il tempo
-    // necessario a completare le rampe sommato a quello necessario per
-    // compiere i rimanenti passi a velocità di regime
-    tm = ((steps - rs) / vp) + tr;
-  } else {
-    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : rs (passi per compiere entrambe le rampe)
-    tm = (steps * tr) / rs;
-  }
-  // La correzione applicata è pari al tempo totale di spostamento moltiplicato
-  // per la velocità siderale in passi al secondo. NB: l'algoritmo non è preciso
-  // perché non viene considerato l'effetto della correzione sul tempo totale
-  // necessario al movimento, ma l'errore così introdotto dovrebbe essere
-  // abbastanza piccolo da essere trascurabile.
-  correction = tm * vs;
-  // Impostazione variabili necessarie per il movimento (movimento semplice o per giri)
-  raMovement.angle = distance;
-  // Imposta il numero di passi corretto arrotondato all'intero più vicino
-  raMovement.steps = static_cast<long>((steps+0.5) * direction + correction );
-  raMovement.startQuote = 0;
-  raMovement.endQuote = 0;
-  raMovement.rotations = 0;
-  raMovement.time = tm;
-  if (abs(raMovement.steps) > 80*12800) {
-    return _rotationsCalc(raMovement.steps, raMovement.startQuote, raMovement.endQuote, raMovement.rotations);
-  }
-  return true;
+  GapersMath::AxisMovementData d;
+  bool ok = GapersMath::setMoveDataRA(distance, d);
+  raMovement.angle      = d.angle;
+  raMovement.steps      = d.steps;
+  raMovement.startQuote = d.startQuote;
+  raMovement.endQuote   = d.endQuote;
+  raMovement.rotations  = d.rotations;
+  raMovement.time       = d.time;
+  return ok;
 }
 
 bool GapersScope::_setMoveDataDEC( double distance ) {
-  // Costanti usate nel calcolo
-  // const double vs = 919.456; // Velocità moto siderale in passi per secondo
-  const double vp = 220000.0;  // Velocità movimento asse in passi per secondo
-  const double spd = 192000.0; // Passi motore per grado di spostamento asse
-  const double rs = 500000.0; // Passi utilizzati per le rampe di salita e discesa
-  // Il tempo di rampa viene calcolato utilizzando la velocità media in passi
-  // al secondo tra la velocità di partenza e quella di arrivo. Essendo una
-  // rampa lineare il valore dovrebbe essere accurato.
-  const double tr = rs / ((vp-200.0)/2.0); // Tempo in secondi necessario a completare rampa salita e discesa
-
-  // Variabili d'appoggio
-  double tm = 0; // Tempo necessario allo spostamento dell'asse
-
-  // La componente del moto siderale è sempre positiva (da est ad ovest),
-  // pertanto consideriamo il valore assoluto del numero di passi necessari
-  // per lo spostamento, memorizzando la direzione per potere alla fine
-  // effettuare la correzione nella giusta direzione.
-  int direction = ( distance > 0 ? 1 : -1);
-  double steps = fabs( distance ) * spd;
-
-  if ( steps > rs ) {
-    // Il movimento richiesto è superiore ai passi necessari per completare
-    // le rampe di accelerazione e decellerazione dei motori. Viene calcolata
-    // la correzione da applicare per il moto siderale considerando il tempo
-    // necessario a completare le rampe sommato a quello necessario per
-    // compiere i rimanenti passi a velocità di regime
-    tm = ((steps - rs) / vp) + tr;
-  } else {
-    // Calcolo usando proporzione tempo totale (tm) : tempo rampa = steps : rs (passi per compiere entrambe le rampe)
-    tm = (steps * tr) / rs;
-  }
-  // return static_cast<long>((steps+0.5) * direction + correction ); // Ritorna il numero di passi corretto arrotondato all'intero più vicino
-  decMovement.angle = distance;
-  decMovement.steps = static_cast<long>((steps+0.5) * direction );
-  decMovement.startQuote = 0;
-  decMovement.endQuote = 0;
-  decMovement.rotations = 0;
-  decMovement.time = tm;
-  if (abs(decMovement.steps) > 80*12800) {
-    return _rotationsCalc(decMovement.steps, decMovement.startQuote, decMovement.endQuote, decMovement.rotations);
-  }
-  return true;
+  GapersMath::AxisMovementData d;
+  bool ok = GapersMath::setMoveDataDEC(distance, d);
+  decMovement.angle      = d.angle;
+  decMovement.steps      = d.steps;
+  decMovement.startQuote = d.startQuote;
+  decMovement.endQuote   = d.endQuote;
+  decMovement.rotations  = d.rotations;
+  decMovement.time       = d.time;
+  return ok;
 }
 
 
 double GapersScope::rangeDistance( double angle) {
-  /*
-  * Riporta il range di un angolo all'interno di +/-180 gradi
-  * da utilizzare nel calcolo delle differenze angolari per
-  * gli spostamenti nelle due direzioni in modo da utilizzare
-  * sempre il percorso angolare più breve.
-  */
-  double r = angle;
-  while (r < -180.0) r += 360.0;
-  while (r > 180.0) r -= 360.0;
-  return r;
+  return GapersMath::rangeDistance(angle);
 }
 /**************************************************************************************
 ** Client is asking us to sync to a new position
@@ -602,6 +585,7 @@ bool GapersScope::Sync(double ra, double dec)
 
   currentRA = ra;
   currentDEC = dec;
+  initialSyncCompleted = true;
   NewRaDec(ra,dec);
   // Mark state as slewing
   TrackState = SCOPE_TRACKING;
@@ -613,108 +597,31 @@ bool GapersScope::Sync(double ra, double dec)
 
   eqc.ra = currentRA * 15.0;
   eqc.dec = currentDEC;
-  eqa.lng = LocationN[LOCATION_LONGITUDE].value;
+  eqa.lng = m_Location.longitude;
   if (eqa.lng > 180.) eqa.lng -= 360.;
-  eqa.lat = LocationN[LOCATION_LATITUDE].value;
+  eqa.lat = m_Location.latitude;
   ln_get_hrz_from_equ(&eqc, &eqa, ln_get_julian_from_sys(), &psn);
-  // DEBUGF(INDI::Logger::DBG_SESSION, "bubu: %f %f %f %f %f %f %f", eqc.ra, eqc.dec, eqa.lat, eqa.lng, ln_get_julian_from_sys(), psn.az, psn.alt);
-  psn.az += 180.;
-  while (psn.az >= 360.) psn.az -= 360.;
-  while (psn.az < 0.) psn.az += 360.;
+  psn.az = normalizeAz(psn.az + 180.);
   NewAltAz(psn.alt, psn.az);
 
-  ISwitch *sw;
-  sw=IUFindSwitch(&domesyncSP,"AUTO");
-  if((sw != NULL)&&( sw->s==ISS_ON )) {
-    bool rc=DomeSync(psn.az);
+  auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+  const bool domeAutoOn = (domeAutoSw != nullptr) && (domeAutoSw->s == ISS_ON);
+  if (domeAutoOn) {
+    bool rc = DomeSync(psn.az);
     if (rc)
-    domeAzNP.s = IPS_OK;
+      domeAzNP.s = IPS_OK;
     else
-    domeAzNP.s = IPS_ALERT;
+      domeAzNP.s = IPS_ALERT;
     IDSetNumber(&domeAzNP, NULL);
   }
   return true;
 }
 
 bool GapersScope::_rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri) {
-  // La quota rappresentabile dagli encoder dello stepper dei motori è limitato al
-  // range -8388608 <--> +8388607. Questo limita il movimento basato sulla
-  // differenza di quota a 2^23 passi, pari a circa 38 gradi.
-  // Qualora sia necessario effettuare uno spostamento maggiore, occorre
-  // utilizzare una procedura alternativa: si calcola il movimento in giri
-  // completi del motore, che viene eseguito superando l'overflow della quota
-  // dell'encoder, che ricomincia a contare ripartendo dal valore più basso
-  // rappresentabile. Al termine del movimento "per giri", ci si posiziona
-  // alla quota necessaria per ottenere lo spostamento preciso richiesto.
-  // Siccome il movimento "per giri" è meno preciso di quello per passi regolato
-  // dall'encoder, è necessario fermarlo prima di aver compiuto il massimo
-  // movimento possibile, altrimenti si rischia di trovarsi oltre la quota di
-  // encoder desiderata, costringendo il motore ad invertire il senso di marcia.
-  // I due movimenti sono distinti e questo non sarebbe eccessivamente
-  // probklematico ma nel caso del movimento in ascensione retta ciò
-  // potrebbe rendere meno affidabile la correzione da applicare per compensare
-  // il moto siderale apparente. Viene pertanto usato nel calcolo un arbitrario
-  // "valore di sicurezza" pari ad 80 giri completi del motore, ovvero circa
-  // 1.024.000 passi (4 gradi circa di movimento). Questo valore viene sottratto
-  // al numero di passi richiesti per lo spostamento in modo da fermarsi per
-  // tempo prima di passare al movimento per passi.
-  // Nella procedura di movimento per giri gestita dal PLC vanno comunicati la
-  // quota iniziale da impostare sull'encoder, la quota finale da raggiungere
-  // ed il numero di giri da compiere. La quota finale viene calcolata
-  // considerando il numero totale di passi da compiere e ricominciando a
-  // contare dal limite inferiore qualora si oltrepassi il limite superiore
-  // rappresentabile dall'encoder (gestione dell'overflow). Nel caso in cui il
-  // calcolo porti ad una quota finale di valore pari a 0, quota iniziale e
-  // finale vengono aumentati di un valore arbitrario (100). Il valore 0 non
-  // è infatti ammesso nei parametri da passare al PLC nella richiesta per
-  // avviare questa procedura.
-
-  const long qrange = 8388608+8388608; // range of stepper quota values (from -8388608 to +8388607)
-  const long qsafe = 80*12800; // safe quota equivalent of 80 revolutions
-
-  m_sq=0;
-  m_eq=0;
-
-  if (abs(steps) < qsafe) {
-    // Sanity check: questa procedura dovrebbe essere utilizzata soltanto per
-    // spostamenti superiori a 38 gradi, 2^23 passi. Utilizzarla per movimenti
-    // più ridotti non è comunque un problema fino a che si sta sopra alla
-    // quota di sicurezza utilizzata per il calcolo dei giri, 1 milione di
-    // passi ovvero circa 4 gradi.
-    //    error("lo spostamento lungo deve essere usato solo per movimenti > 1<<23 passi.");
+  bool ok = GapersMath::rotationsCalc(steps, m_sq, m_eq, m_giri);
+  if (!ok)
     DEBUG(INDI::Logger::DBG_SESSION, "Requested a movement too small for spin based driving. This procedure should be used only for > 1^23 steps.");
-    return false;
-  }
-
-  if (steps > 0) {
-    // steps are positive, clockwise movement)
-    m_sq = -8388608;
-    m_eq = (steps % qrange)+m_sq;
-    m_giri = ((steps - qsafe) / 12800) + 1;
-    if ( m_eq < (m_sq + qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-      m_sq += qsafe;
-      m_eq += qsafe;
-    }
-    // check for a nasty race condition in plc program
-    if (m_eq == 0) {
-      m_sq += 100;
-      m_eq = 100;
-    }
-  } else { // steps are negative (counterclockwise movement)
-    m_sq = 8388607;
-    m_eq = (steps % qrange)+m_sq;
-    m_giri = ((steps + qsafe) / 12800) -1;
-    if ( m_eq > (m_sq - qsafe) ) { // Evitiamo di trovarci a cavallo dell'overflow al termine del movimento per giri
-      m_sq -= qsafe;
-      m_eq -= qsafe;
-    }
-    // check for a nasty race condition in plc program
-    if (m_eq == 0) {
-      m_sq -= 100;
-      m_eq = -100;
-    }
-  }
-return true;
+  return ok;
 }
 
 void GapersScope::ISGetProperties (const char *dev) {
@@ -723,15 +630,17 @@ void GapersScope::ISGetProperties (const char *dev) {
 
   if(isConnected()) {
     // Add eq coord J2000 number
-    defineNumber(&Eq2kNP);
+    defineProperty(&Eq2kNP);
     // Add AltAzimuthal coord
-    defineNumber(&AaNP);
+    defineProperty(&AaNP);
+    // Add optical information
+    defineProperty(&telescopeInfoNP);
     // Add dome properties
-    defineSwitch(&domesyncSP);
-    defineNumber(&domeAzNP);
-    defineSwitch(&domeCoordSP);
-    defineNumber(&domeSpeedNP);
-    defineNumber(&domeAzThresholdNP);
+    defineProperty(&domesyncSP);
+    defineProperty(&domeAzNP);
+    defineProperty(&domeCoordSP);
+    defineProperty(&domeSpeedNP);
+    defineProperty(&domeAzThresholdNP);
   }
 }
 
@@ -740,22 +649,29 @@ bool GapersScope::updateProperties()
   bool rc = true;
   rc = INDI::Telescope::updateProperties();
 
+  // Keep unsupported manual motion controls out of client UI.
+  deleteProperty(MovementNSSP);
+  deleteProperty(MovementWESP);
+  deleteProperty(ReverseMovementSP);
+  deleteProperty(MotionControlModeTP);
+  deleteProperty(LockAxisSP);
+
   if(isConnected())
   {
-    defineNumber(&Eq2kNP);
-    defineNumber(&AaNP);
-    defineSwitch(&domesyncSP);
-    defineNumber(&domeAzNP);
-    defineSwitch(&domeCoordSP);
-    defineNumber(&domeSpeedNP);
-    defineNumber(&domeAzThresholdNP);
-
-    loadDefaultConfig();
+    defineProperty(&Eq2kNP);
+    defineProperty(&AaNP);
+    defineProperty(&telescopeInfoNP);
+    defineProperty(&domesyncSP);
+    defineProperty(&domeAzNP);
+    defineProperty(&domeCoordSP);
+    defineProperty(&domeSpeedNP);
+    defineProperty(&domeAzThresholdNP);
   }
   else
   {
     deleteProperty(Eq2kNP.name);
     deleteProperty(AaNP.name);
+    deleteProperty(telescopeInfoNP.name);
     deleteProperty(domesyncSP.name);
     deleteProperty(domeAzNP.name);
     deleteProperty(domeCoordSP.name);
@@ -767,18 +683,18 @@ bool GapersScope::updateProperties()
 }
 
 bool GapersScope::saveConfigItems(FILE *fp) {
+  IUSaveConfigNumber(fp, &telescopeInfoNP);
   IUSaveConfigSwitch(fp, &domesyncSP);
   IUSaveConfigSwitch(fp, &domeCoordSP);
   IUSaveConfigNumber(fp, &domeSpeedNP);
   IUSaveConfigNumber(fp, &domeAzThresholdNP);
-  IUSaveConfigNumber(fp, &ScopeParametersNP);
 
   return INDI::Telescope::saveConfigItems(fp);
 }
 
 void GapersScope::NewAltAz(double alt, double az) {
-  AaN[AXIS_ALT].value = alt;
-  AaN[AXIS_AZ].value = az;
+  AaN[0].value = alt;
+  AaN[1].value = az;
   AaNP.s = IPS_IDLE;
   IDSetNumber(&AaNP, NULL);
 }
@@ -788,7 +704,7 @@ void GapersScope::NewRaDec(double ra,double dec) {
   // Parse the RA/DEC into strings
   fs_sexa(RAStr, ra, 2, 3600);
   fs_sexa(DecStr, dec, 2, 3600);
-  DEBUGF(DBG_SCOPE, "Current RA: %s Current DEC: %s", RAStr, DecStr );
+  LOGF_DEBUG("Current RA: %s Current DEC: %s", RAStr, DecStr);
 
   switch(TrackState)
   {
@@ -816,10 +732,10 @@ void GapersScope::NewRaDec(double ra,double dec) {
   ln_get_equ_prec2(&jnow, ln_get_julian_from_sys(), JD2000, &j2k);
   j2k.ra /= 15.0;
 
-  if (Eq2kN[AXIS_RA].value != j2k.ra || Eq2kN[AXIS_DE].value != j2k.dec || Eq2kNP.s != lastEq2kState)
+  if (Eq2kN[0].value != j2k.ra || Eq2kN[1].value != j2k.dec || Eq2kNP.s != lastEq2kState)
   {
-    Eq2kN[AXIS_RA].value=j2k.ra;
-    Eq2kN[AXIS_DE].value=j2k.dec;
+    Eq2kN[0].value = j2k.ra;
+    Eq2kN[1].value = j2k.dec;
     lastEq2kState = Eq2kNP.s;
     IDSetNumber(&Eq2kNP, NULL);
   }
@@ -829,62 +745,65 @@ void GapersScope::NewRaDec(double ra,double dec) {
 bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n) {
   //  first check if it's for our device
   if(strcmp(dev,getDefaultName())==0) {
+    if(strcmp(name, "TELESCOPE_INFO") == 0) {
+      IUUpdateNumber(&telescopeInfoNP, values, names, n);
+      telescopeInfoNP.s = IPS_OK;
+      IDSetNumber(&telescopeInfoNP, NULL);
+      saveConfig(true, telescopeInfoNP.name);
+      return true;
+    }
+
     bool rc=false;
     double az=-1;
     if(strcmp(name,"DOME_THRESHOLD")==0) {
       for (int x=0; x<n; x++) {
-        INumber *th = IUFindNumber(&domeAzThresholdNP, names[x]);
-        if (th == &domeAzThresholdN[0]) {
-          domeAzThreshold = values[x];
-          domeAzThresholdN[0].value = domeAzThreshold;
+        if (!strcmp(names[x], "THRESHOLD")) {
+          domeAzThresholdN[0].value = values[x];
         }
       }
       domeAzThresholdNP.s = IPS_OK;
       IDSetNumber(&domeAzThresholdNP, NULL);
     } else if(strcmp(name,"DOME_SPEED")==0) {
       for (int x=0; x<n; x++) {
-        INumber *sp = IUFindNumber(&domeSpeedNP, names[x]);
-        if (sp == &domeSpeedN[0]) {
-          domeSpeed = values[x];
-          domeSpeedN[0].value = domeSpeed;
+        if (!strcmp(names[x], "PERIOD")) {
+          domeSpeedN[0].value = values[x];
         }
       }
-      domeSpeedNP.s=IPS_OK;
+      domeSpeedNP.s = IPS_OK;
       IDSetNumber(&domeSpeedNP, NULL);
     } else if(strcmp(name,"DOME_AZIMUTH")==0) {
-      if (domesyncS[0].s == ISS_ON) {
+      auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
+      if (domeAutoSw != nullptr && domeAutoSw->s == ISS_ON) {
         DEBUG(INDI::Logger::DBG_WARNING, "Cannot set azimuth while in auto mode.");
-        domeAzNP.s=IPS_OK;
+        domeAzNP.s = IPS_OK;
         IDSetNumber(&domeAzNP, NULL);
         return true;
       }
       for (int x=0; x<n; x++) {
-        INumber *azp = IUFindNumber(&domeAzNP, names[x]);
-        if (azp == &domeAzN[0]) {
+        if (!strcmp(names[x], "AZ")) {
           az = values[x];
         }
       }
       if ((az >= 0) && (az <= 360)) {
-        ISwitch *sw;
-        sw=IUFindSwitch(&domeCoordSP,"SYNC");
-        if((sw != NULL)&&( sw->s==ISS_ON )) {
-          rc=DomeSync(az);
+        auto domeSyncSw = IUFindSwitch(&domeCoordSP, "SYNC");
+        const bool domeSyncMode = (domeSyncSw != nullptr) && (domeSyncSw->s == ISS_ON);
+        if (domeSyncMode) {
+          rc = DomeSync(az);
           if (rc)
-          domeAzNP.s = IPS_OK;
+            domeAzNP.s = IPS_OK;
           else
-          domeAzNP.s = IPS_ALERT;
+            domeAzNP.s = IPS_ALERT;
           IDSetNumber(&domeAzNP, NULL);
           return rc;
         }
         domeTargetAZ = az;
         rc = DomeGoto(az);
         if (rc)
-        domeAzNP.s = IPS_BUSY;
+          domeAzNP.s = IPS_BUSY;
         else
-        domeAzNP.s = IPS_ALERT;
+          domeAzNP.s = IPS_ALERT;
         IDSetNumber(&domeAzNP, NULL);
         return rc;
-        // domeAzN[0].value = az;
       }
       domeAzNP.s = IPS_OK;
       IDSetNumber(&domeAzNP, NULL);
@@ -896,10 +815,9 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
 
       for (int x=0; x<n; x++)
       {
-        INumber *eqp = IUFindNumber (&Eq2kNP, names[x]);
-        if (eqp == &Eq2kN[AXIS_RA]) {
+        if (!strcmp(names[x], "RA")) {
           ra = values[x];
-        } else if (eqp == &Eq2kN[AXIS_DE]) {
+        } else if (!strcmp(names[x], "DEC")) {
           dec = values[x];
         }
       }
@@ -915,31 +833,63 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         if (CanPark()) {
           if (isParked()) {
             DEBUG(INDI::Logger::DBG_WARNING, "Please unpark the mount before issuing any motion/sync commands.");
-            Eq2kNP.s = lastEq2kState = IPS_IDLE;
+            Eq2kNP.s = IPS_IDLE;
+            lastEq2kState = IPS_IDLE;
             IDSetNumber(&Eq2kNP, NULL);
             return false;
           }
         }
         // Check if it can sync
+        auto syncSw  = CoordSP.findWidgetByName("SYNC");
+        auto slewSw  = CoordSP.findWidgetByName("SLEW");
+        auto trackSw = CoordSP.findWidgetByName("TRACK");
+
+        const bool syncMode = (syncSw != nullptr) && (syncSw->getState() == ISS_ON);
+        if (!initialSyncCompleted && !syncMode)
+        {
+          Eq2kNP.s = IPS_ALERT;
+          lastEq2kState = IPS_ALERT;
+          IDSetNumber(&Eq2kNP, "Initial sync required before movement. Set ON_COORD_SET to SYNC and send coordinates once.");
+          return false;
+        }
+
+        // Keep this check for clients that support TRACK mode on ON_COORD_SET.
+        if (!initialSyncCompleted && (trackSw != nullptr) && (trackSw->getState() == ISS_ON))
+        {
+          Eq2kNP.s = IPS_ALERT;
+          lastEq2kState = IPS_ALERT;
+          IDSetNumber(&Eq2kNP, "Initial sync required before movement. ON_COORD_SET=TRACK is disabled until first sync.");
+          return false;
+        }
+
         if (CanSync()) {
-          ISwitch *sw;
-          sw=IUFindSwitch(&CoordSP,"SYNC");
-          if((sw != NULL)&&( sw->s==ISS_ON )) {
-            rc=Sync(ra,dec);
+          auto syncOnSetSw = CoordSP.findWidgetByName("SYNC");
+          const bool syncOnSetMode = (syncOnSetSw != nullptr) && (syncOnSetSw->getState() == ISS_ON);
+          if (syncOnSetMode) {
+            rc = Sync(ra,dec);
             if (rc)
-            Eq2kNP.s = lastEq2kState = IPS_OK;
+              Eq2kNP.s = IPS_OK;
             else
-            Eq2kNP.s = lastEq2kState = IPS_ALERT;
+              Eq2kNP.s = IPS_ALERT;
+            lastEq2kState = Eq2kNP.s;
             IDSetNumber(&Eq2kNP, NULL);
             return rc;
           }
         }
+        if (!initialSyncCompleted && slewSw != nullptr && slewSw->getState() == ISS_ON)
+        {
+          Eq2kNP.s = IPS_ALERT;
+          lastEq2kState = IPS_ALERT;
+          IDSetNumber(&Eq2kNP, "Initial sync required before slew. Use ON_COORD_SET=SYNC for first alignment.");
+          return false;
+        }
         // Issue GOTO
         rc=Goto(ra,dec);
         if (rc)
-        Eq2kNP.s = lastEq2kState = IPS_BUSY;
+          Eq2kNP.s = (TrackState == SCOPE_SLEWING) ? IPS_BUSY : IPS_OK;
         else
-        Eq2kNP.s = lastEq2kState = IPS_ALERT;
+          Eq2kNP.s = IPS_ALERT;
+        lastEq2kState = Eq2kNP.s;
         IDSetNumber(&Eq2kNP, NULL);
       }
       return rc;
@@ -950,19 +900,41 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
 
 bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n) {
   if(strcmp(dev,getDefaultName())==0) {
+    if (!strcmp(name, CoordSP.getName())) {
+      bool wantsSlewOrTrack = false;
+      for (int i = 0; i < n; i++) {
+        if (states[i] != ISS_ON)
+          continue;
+        if (!strcmp(names[i], "SLEW") || !strcmp(names[i], "TRACK")) {
+          wantsSlewOrTrack = true;
+          break;
+        }
+      }
+
+      if (!initialSyncCompleted && wantsSlewOrTrack) {
+        CoordSP.setState(IPS_ALERT);
+        CoordSP.apply("Initial sync required: ON_COORD_SET SLEW/TRACK are disabled until first sync.");
+        return true;
+      }
+
+      CoordSP.update(states, names, n);
+      CoordSP.setState(IPS_OK);
+      CoordSP.apply();
+      return true;
+    }
+
     //  This one is for us
-    if(!strcmp(name,domeCoordSP.name)) {
+    if(!strcmp(domeCoordSP.name, name)) {
       //  client is telling us what to do with co-ordinate requests
-      domeCoordSP.s=IPS_OK;
-      IUUpdateSwitch(&domeCoordSP,states,names,n);
-      //  Update client display
+      IUUpdateSwitch(&domeCoordSP, states, names, n);
+      domeCoordSP.s = IPS_OK;
       IDSetSwitch(&domeCoordSP, NULL);
       return true;
     }
     // Dome position in sync with telescope
-    if (!strcmp(name, domesyncSP.name)) {
-      domesyncSP.s=IPS_OK;
+    if (!strcmp(domesyncSP.name, name)) {
       IUUpdateSwitch(&domesyncSP, states, names, n);
+      domesyncSP.s = IPS_OK;
       IDSetSwitch(&domesyncSP, NULL);
       return true;
     }
@@ -971,202 +943,10 @@ bool GapersScope::ISNewSwitch (const char *dev, const char *name, ISState *state
   return INDI::Telescope::ISNewSwitch(dev,name,states,names,n);
 }
 
-/**
-* Reimplemented from indicom.h/indicom.c in order to open and access
-* serial port in nonblocking mode. This is mandatory because commands to
-* and responses from PLC must be processed asynchronously.
-*/
-int GapersScope::tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd) {
-  int t_fd=-1;
-  char msg[80];
-  int bps;
-  struct termios tty_setting;
-
-  if ( (t_fd = open(device, O_RDWR | O_NOCTTY | O_NONBLOCK)) == -1)
-  {
-    *fd = -1;
-    return TTY_PORT_FAILURE;
-  }
-
-  /* Control Modes
-  Set bps rate */
-  switch (bit_rate) {
-    case 0:
-    bps = B0;
-    break;
-    case 50:
-    bps = B50;
-    break;
-    case 75:
-    bps = B75;
-    break;
-    case 110:
-    bps = B110;
-    break;
-    case 134:
-    bps = B134;
-    break;
-    case 150:
-    bps = B150;
-    break;
-    case 200:
-    bps = B200;
-    break;
-    case 300:
-    bps = B300;
-    break;
-    case 600:
-    bps = B600;
-    break;
-    case 1200:
-    bps = B1200;
-    break;
-    case 1800:
-    bps = B1800;
-    break;
-    case 2400:
-    bps = B2400;
-    break;
-    case 4800:
-    bps = B4800;
-    break;
-    case 9600:
-    bps = B9600;
-    break;
-    case 19200:
-    bps = B19200;
-    break;
-    case 38400:
-    bps = B38400;
-    break;
-    case 57600:
-    bps = B57600;
-    break;
-    case 115200:
-    bps = B115200;
-    break;
-    case 230400:
-    bps = B230400;
-    break;
-    default:
-    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid bit rate.", bit_rate) < 0)
-    perror(NULL);
-    else
-    perror(msg);
-    return TTY_PARAM_ERROR;
-  }
-  if ((cfsetispeed(&tty_setting, bps) < 0) ||
-  (cfsetospeed(&tty_setting, bps) < 0))
-  {
-    perror("tty_connect: failed setting bit rate.");
-    return TTY_PORT_FAILURE;
-  }
-
-  /* Control Modes
-  set no flow control word size, parity and stop bits.
-  Also don't hangup automatically and ignore modem status.
-  Finally enable receiving characters. */
-  tty_setting.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL );
-  tty_setting.c_cflag |= (CLOCAL | CREAD | CRTSCTS );
-
-  /* word size */
-  switch (word_size) {
-    case 5:
-    tty_setting.c_cflag |= CS5;
-    break;
-    case 6:
-    tty_setting.c_cflag |= CS6;
-    break;
-    case 7:
-    tty_setting.c_cflag |= CS7;
-    break;
-    case 8:
-    tty_setting.c_cflag |= CS8;
-    break;
-    default:
-
-    fprintf( stderr, "Default\n") ;
-    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid data bit count.", word_size) < 0)
-    perror(NULL);
-    else
-    perror(msg);
-
-    return TTY_PARAM_ERROR;
-  }
-
-  /* parity */
-  switch (parity) {
-    case PARITY_NONE:
-    break;
-    case PARITY_EVEN:
-    tty_setting.c_cflag |= PARENB;
-    break;
-    case PARITY_ODD:
-    tty_setting.c_cflag |= PARENB | PARODD;
-    break;
-    default:
-
-    fprintf( stderr, "Default1\n") ;
-    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid parity selection value.", parity) < 0)
-    perror(NULL);
-    else
-    perror(msg);
-
-    return TTY_PARAM_ERROR;
-  }
-
-  /* stop_bits */
-  switch (stop_bits) {
-    case 1:
-    break;
-    case 2:
-    tty_setting.c_cflag |= CSTOPB;
-    break;
-    default:
-    fprintf( stderr, "Default2\n") ;
-    if (snprintf(msg, sizeof(msg), "tty_connect: %d is not a valid stop bit count.", stop_bits) < 0)
-    perror(NULL);
-    else
-    perror(msg);
-
-    return TTY_PARAM_ERROR;
-  }
-  /* Control Modes complete */
-
-  /* Ignore bytes with parity errors and make terminal raw and dumb.*/
-  tty_setting.c_iflag &= ~(PARMRK | ISTRIP | IGNCR | ICRNL | INLCR | IXOFF | IXON | IXANY);
-  tty_setting.c_iflag |= INPCK | IGNPAR | IGNBRK;
-
-  /* Raw output.*/
-  tty_setting.c_oflag &= ~(OPOST | ONLCR);
-
-  /* Local Modes
-  Don't echo characters. Don't generate signals.
-  Don't process any characters. Don't block. */
-  tty_setting.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG | IEXTEN | NOFLSH | TOSTOP);
-  tty_setting.c_lflag |=  NOFLSH;
-
-  /* nonblocking read */
-  tty_setting.c_cc[VMIN]  = 0;
-  tty_setting.c_cc[VTIME] = 0;
-
-  /* now clear input and output buffers and activate the new terminal settings */
-  tcflush(t_fd, TCIOFLUSH);
-  if (tcsetattr(t_fd, TCSANOW, &tty_setting))
-  {
-    perror("tty_connect: failed setting attributes on serial port.");
-    tty_disconnect(t_fd);
-    return TTY_PORT_FAILURE;
-  }
-
-  *fd = t_fd;
-  /* return success */
-  return TTY_OK;
-}
-
 void GapersScope::commHandler() {
   unsigned char inbuf[80]; // small buffer for reception, should hold most commands
   std::string rs = ""; // local buffer for holding a complete command
+  static bool nonBlockingStateLogged = false;
 
   if (isSimulation()) // No interaction with RS232 in simulation mode
   return;
@@ -1174,42 +954,57 @@ void GapersScope::commHandler() {
   if (! isConnected()) // If telescope hardware is not connected, bail out
   return;
 
+  if (!nonBlockingStateLogged) {
+    int flags = fcntl(PortFD, F_GETFL, 0);
+    if (flags == -1)
+      LOGF_WARN("comm-handler: cannot read serial flags on fd %d: %s", PortFD, strerror(errno));
+    else
+      LOGF_DEBUG("comm-handler: serial fd %d flags: 0x%X (O_NONBLOCK=%s)", PortFD, flags, (flags & O_NONBLOCK) ? "ON" : "OFF");
+    nonBlockingStateLogged = true;
+  }
+
   do {
     int rlen=0; // number of chars read by read below
     rlen = read(PortFD, inbuf, 80);
     if (rlen == -1) {
-      DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %d\n", serialConnection->port(), strerror(errno));
-      Disconnect();
-      return;
-    }
-    for (int bufp=0; bufp < rlen; ++bufp) {
-      unsigned char cbuf=inbuf[bufp];
-      switch (c_state) {
-        case STARTWAITING:
-        if (cbuf == ASCII_STX) {
-          _readbuffer.clear();
-          c_state = READINGCOMMAND;
-        }
-        break;
-        case READINGCOMMAND:
-        if (cbuf == ASCII_STX) {
-          // if a new Start char is found before End char,
-          // reset queue, since we've likely got a transmission
-          // error anyway.
-          _readbuffer.clear();
-        } else if (cbuf == ASCII_ETX) {
-          rs = _readbuffer;
-          _readbuffer.clear();
-
-          c_state = STARTWAITING;
-        } else {
-          _readbuffer.push_back(cbuf);
-        }
-        break;
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+        rlen = 0;
+      else {
+        DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error reading %s: %s\n", serialConnection->port(), strerror(errno));
+        Disconnect();
+        return;
       }
-      if (!rs.empty()) {
-        ParsePLCMessage(rs);
-        rs.clear();
+    }
+    if (rlen > 0) {
+      for (int bufp=0; bufp < rlen; ++bufp) {
+        unsigned char cbuf=inbuf[bufp];
+        switch (c_state) {
+          case STARTWAITING:
+          if (cbuf == ASCII_STX) {
+            _readbuffer.clear();
+            c_state = READINGCOMMAND;
+          }
+          break;
+          case READINGCOMMAND:
+          if (cbuf == ASCII_STX) {
+            // if a new Start char is found before End char,
+            // reset queue, since we've likely got a transmission
+            // error anyway.
+            _readbuffer.clear();
+          } else if (cbuf == ASCII_ETX) {
+            rs = _readbuffer;
+            _readbuffer.clear();
+
+            c_state = STARTWAITING;
+          } else {
+            _readbuffer.push_back(cbuf);
+          }
+          break;
+        }
+        if (!rs.empty()) {
+          ParsePLCMessage(rs);
+          rs.clear();
+        }
       }
     }
     // check for output queue and eventually send its contents, one at a time.
@@ -1218,7 +1013,7 @@ void GapersScope::commHandler() {
       int rv = write(PortFD, (unsigned char*) _writequeue.front().c_str(), _writequeue.front().size());
       if (rv == -1) {
         // error occurred
-        DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error %d during write\n", strerror(errno));
+        DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: serial error %s during write\n", strerror(errno));
         // empty queue and abort processing
         Disconnect();
         return;
@@ -1247,13 +1042,12 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // most of the code, CRC check is silently ignored and can happily be
   // filled with imaginary powers of 42.
   char    syst;
-  // char *  ps;
   char    cmd[ 8];
 
   if (msg.empty()) return;
 
   // Convert 2 fields!
-  if( sscanf( msg.c_str(), "%c%s ", &syst, cmd) != 2) {
+  if( sscanf( msg.c_str(), "%c%7s ", &syst, cmd) != 2) {
     DEBUGF(INDI::Logger::DBG_SESSION, "comm-handler: Xpres syntax error: '%s'\n", msg.c_str());
     return;
   }
@@ -1262,13 +1056,70 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // Received ERROR command
   if( strncasecmp( cmd, "mi", 2) == 0)
   {
-    int val;
-    sscanf( msg.substr(4).c_str(), "%d ", &val);
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres ERROR %c %d\n", syst, val);
-    // La documentazione dice che il codice di errore generato dal sistema
-    // e comunicato tramite messaggio "mi" può variare tra 400 e 582. Il codice
-    // 500 è marcato "READY" e viene inviato quando il sistema si accende.
-    // TODO: eventually process error message
+    int val = 0;
+    char detail[64] = {0};
+    int fields = sscanf(msg.substr(4).c_str(), "%d %63s ", &val, detail);
+
+    if (fields >= 2)
+      LOGF_DEBUG("comm-handler: Xpres ERROR %c %d (%s)", syst, val, detail);
+    else
+      LOGF_DEBUG("comm-handler: Xpres ERROR %c %d", syst, val);
+
+    // Dizionario dei codici mi noti (range documentato: 400-582).
+    // Fonte: documentazione protocollo Xpress + analisi debugsession.log (2002-2007).
+    struct MiCode { int code; uint level; const char *desc; };
+    static const MiCode MI_CODES[] = {
+      // Startup / ready
+      { 500, INDI::Logger::DBG_DEBUG,           "READY - subsystem online" },
+      // Warnings / recoverable
+      { 547, INDI::Logger::DBG_WARNING,        "PLC warning / soft error" },
+      { 510, INDI::Logger::DBG_WARNING,        "Limit switch warning" },
+      { 511, INDI::Logger::DBG_WARNING,        "End-of-travel warning" },
+      { 520, INDI::Logger::DBG_WARNING,        "Motor overcurrent warning" },
+      { 530, INDI::Logger::DBG_WARNING,        "Encoder fault" },
+      // Errors
+      { 400, INDI::Logger::DBG_ERROR,          "Generic PLC error" },
+      { 401, INDI::Logger::DBG_ERROR,          "Comm timeout" },
+      { 402, INDI::Logger::DBG_ERROR,          "Checksum error" },
+      { 403, INDI::Logger::DBG_ERROR,          "Unknown command" },
+      { 450, INDI::Logger::DBG_ERROR,          "Motor driver fault" },
+      { 451, INDI::Logger::DBG_ERROR,          "Overcurrent fault" },
+      { 452, INDI::Logger::DBG_ERROR,          "Overtemperature fault" },
+      { 582, INDI::Logger::DBG_ERROR,          "Emergency stop active" },
+    };
+    static const int MI_CODES_COUNT = static_cast<int>(sizeof(MI_CODES) / sizeof(MI_CODES[0]));
+
+    const char *miDesc = nullptr;
+    uint miLevel = INDI::Logger::DBG_WARNING;
+    for (int i = 0; i < MI_CODES_COUNT; ++i)
+    {
+      if (MI_CODES[i].code == val)
+      {
+        miDesc  = MI_CODES[i].desc;
+        miLevel = MI_CODES[i].level;
+        break;
+      }
+    }
+    if (miDesc)
+      DEBUGF(miLevel, "comm-handler: subsystem %c mi %d: %s\n", syst, val, miDesc);
+    else
+      DEBUGF(INDI::Logger::DBG_WARNING, "comm-handler: subsystem %c mi %d (unknown code)\n", syst, val);
+  }
+  else
+  // Received STATUS/INFO string command
+  if( strncasecmp( cmd, "vf", 2) == 0)
+  {
+    int var = 0;
+    int whr = 0;
+    char text[128] = {0};
+
+    // Typical payload: "002 001 \"A.R. pronta\" ..."
+    if (sscanf(msg.substr(4).c_str(), "%d %d \"%127[^\"]\"", &var, &whr, text) == 3)
+      LOGF_DEBUG("comm-handler: Xpres STATUS %c %d %d \"%s\"", syst, var, whr, text);
+    else
+      LOGF_DEBUG("comm-handler: Xpres STATUS %c raw: %s", syst, msg.c_str());
+
+    return;
   }
   else
   // Received VAR update command
@@ -1276,9 +1127,8 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   {
     int val, var, whr;
     sscanf( msg.substr(4).c_str(), "%d %d %d ", &val, &var, &whr);
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres EVENT %c %d %d %d\n", syst, var, val, whr);
+    LOGF_DEBUG("comm-handler: Xpres EVENT %c %d %d %d", syst, var, val, whr);
     // m_signal_event.emit(syst, var, val, whr);
-    // TODO: process var update command
     switch (syst) {
       case '1': // Var update in RA subsystem
       switch (var) {
@@ -1328,19 +1178,19 @@ void GapersScope::ParsePLCMessage(const std::string msg) {
   // Received ECHO of sent command
   if( strncasecmp( cmd, "tx", 2) == 0)
   {
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres echo received: %s\n", msg.c_str());
+    LOGF_DEBUG("comm-handler: Xpres echo received: %s", msg.c_str());
     cmdEchoTimeout = 0;
     return;
   }
   else // Received ECHO or unhandled command
   {
-    DEBUGF(DBG_SCOPE, "comm-handler: Xpres unhandled command: %s\n", msg.c_str());
+    LOGF_DEBUG("comm-handler: Xpres unhandled command: %s", msg.c_str());
     return;
   }
 
 }
 
-void GapersScope::SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri) {
+void GapersScope::SendMove(char _system, long steps, long m_sq, long m_eq, long m_giri) {
   switch (_system) {
     case '1': raIsMoving = true; break;
     case '2': decIsMoving = true; break;
@@ -1349,7 +1199,7 @@ void GapersScope::SendMove(int _system, long steps, long m_sq, long m_eq, long m
     return;
     break;
   }
-  if( abs( m_giri ) > 0)	{
+  if( std::abs( m_giri ) > 0)	{
     DEBUGF(INDI::Logger::DBG_SESSION, "XpresIF: Movement > 2^23 steps on %c axis: %d %d %d %d.\n", _system, steps, m_sq, m_eq, m_giri);
     SendCommand(_system, 10, m_sq);
     SendCommand(_system, 9, 5);

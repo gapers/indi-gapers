@@ -6,9 +6,6 @@ Copyright (C) 2024 Gruppo Astrofili Persicetani
 Copyright (C) 2014 Maurizio Serrazanetti
 */
 
-#ifndef GAPERSSCOPE_H
-#define GAPERSSCOPE_H
-
 #pragma once
 
 #include <string>
@@ -19,7 +16,6 @@ Copyright (C) 2014 Maurizio Serrazanetti
 
 #include <inditelescope.h>
 #include <queue>
-#include <string>
 
 class GapersScope : public INDI::Telescope
 {
@@ -44,8 +40,11 @@ protected:
   INumberVectorProperty AaNP;
   INumber AaN[2];
 
-  // Dome properties
+  // Optical information (OTA + guide scope)
+  INumberVectorProperty telescopeInfoNP;
+  INumber telescopeInfoN[4];
 
+  // Dome properties
   ISwitchVectorProperty domesyncSP;
   ISwitch domesyncS[2];
 
@@ -84,25 +83,21 @@ private:
   double targetDEC;
   bool raIsMoving;
   bool decIsMoving;
-  unsigned int DBG_SCOPE;
+  bool initialSyncCompleted;
   IPState lastEq2kState;
   double domeCurrentAZ;
   double domeTargetAZ;
   DomeStatus DomeTrackState;
-  double domeSpeed;
-  double domeAzThreshold;
   time_t domeMovementStart;
   time_t domeMovementEnd;
 
   // Serial handling methods and properties
-  int tty_connect(const char *device, int bit_rate, int word_size, int parity, int stop_bits, int *fd);
   void commHandler();
   void ParsePLCMessage(const std::string msg);
-  void SendMove(int _system, long steps, long m_sq, long m_eq, long m_giri);
+  void SendMove(char _system, long steps, long m_sq, long m_eq, long m_giri);
   void FinalizeMove();
   void SendCommand( char syst, short int cmd, long val );
   bool Handshake();
-  int PortFD{-1};
 
   Connection::Serial *serialConnection{nullptr};
 
@@ -136,6 +131,8 @@ private:
   };
 
   double rangeDistance( double );
+  double _calcMoveTime( double steps, double vp, double rs ) const;
+  static double normalizeAz( double az );
   bool _setMoveDataRA( double );
   bool _setMoveDataDEC( double );
   bool _rotationsCalc(long steps, long &m_sq, long &m_eq, long &m_giri);
@@ -151,5 +148,3 @@ private:
 #define ASCII_CR                0x0D
 #define ASCII_XON               0x11
 #define ASCII_XOFF              0x13
-
-#endif // GAPERSSCOPE_H
