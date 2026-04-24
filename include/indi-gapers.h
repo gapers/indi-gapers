@@ -51,8 +51,8 @@ protected:
   INumberVectorProperty domeAzNP;
   INumber domeAzN[1];
 
-  ISwitchVectorProperty domeCoordSP;
-  ISwitch domeCoordS[2];
+  INumberVectorProperty domeSyncNP;
+  INumber domeSyncN[1];
 
   INumberVectorProperty domeSpeedNP;
   INumber domeSpeedN[1];

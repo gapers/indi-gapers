@@ -329,20 +329,28 @@ def run_dome_auto_scenario(*, device: str, port: int, capture_jsonl: Path) -> No
 
     clear_capture(capture_jsonl)
 
-    # Ensure dome auto-follow is enabled.
-    indi_set(device, "DOME_MOVEMENT.AUTO=On", port)
+    # Ensure dome auto-follow is enabled and threshold is low enough to trigger motion.
+    indi_set(device, "DOME_AUTOSYNC.DOME_AUTOSYNC_ENABLE=On", port)
+    indi_set(device, "DOME_PARAMS.AUTOSYNC_THRESHOLD=1.0", port)
 
-    # Baseline sync at a circumpolar point.
+    auto_state = read_prop(f"{device}.DOME_AUTOSYNC.DOME_AUTOSYNC_ENABLE", port)
+    if auto_state != "On":
+        raise RuntimeError(f"dome_auto_follow: autosync non abilitato (DOME_AUTOSYNC_ENABLE={auto_state})")
+
+    # Baseline sync at a non-circumpolar point to maximize azimuth change.
     indi_set(device, "ON_COORD_SET.SYNC=On", port)
-    indi_set(device, "EQUATORIAL_COORD.RA=0.0;DEC=75.0", port)
+    indi_set(device, "EQUATORIAL_COORD.RA=0.0;DEC=45.0", port)
     time.sleep(0.5)
+
+    # Force a known dome reference, so the following slew must trigger a dome move.
+    indi_set(device, "DOME_SYNC.DOME_SYNC_VALUE=0.0", port)
 
     # Clear any traffic induced by startup/sync interactions.
     clear_capture(capture_jsonl)
 
     # Slew to a far-away RA to force dome azimuth change.
     indi_set(device, "ON_COORD_SET.SLEW=On", port)
-    indi_set(device, "EQUATORIAL_COORD.RA=12.0;DEC=75.0", port)
+    indi_set(device, "EQUATORIAL_COORD.RA=12.0;DEC=45.0", port)
 
     def _got_dome_triplet() -> bool:
         frames = load_frames(capture_jsonl)
@@ -445,7 +453,7 @@ def main() -> int:
             raise RuntimeError("Driver in simulazione dopo CONNECT: nessun traffico seriale PLC")
 
         # Disable dome auto movement to keep PLC command stream deterministic.
-        indi_set(args.device, "DOME_MOVEMENT.MANUAL=On", args.port)
+        indi_set(args.device, "DOME_AUTOSYNC.DOME_AUTOSYNC_DISABLE=On", args.port)
 
         # 16 permutations:
         # RA mode {short,long} x DEC mode {short,long} x RA dir {+, -} x DEC dir {+, -}

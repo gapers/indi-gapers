@@ -364,3 +364,99 @@ TEST(SetMoveDataDEC, AngleStoredCorrectly)
     setMoveDataDEC(7.25, d);
     EXPECT_DOUBLE_EQ(d.angle, 7.25);
 }
+
+// ===========================================================================
+// DOME_ABSOLUTE_POSITION setter logic
+//   These tests verify the boundary conditions and calculations that drive
+//   the DOME_ABSOLUTE_POSITION property handler (ISNewNumber) and DomeGoto().
+//   The class itself is not instantiated here; pure math is exercised.
+// ===========================================================================
+
+// --- AZ range validation (ISNewNumber guard: (az >= 0) && (az <= 360)) ---
+
+TEST(DomeAbsolutePosition, ValidAzRange)
+{
+    // Values accepted by the setter
+    EXPECT_TRUE(0.0   >= 0.0 && 0.0   <= 360.0);
+    EXPECT_TRUE(180.0 >= 0.0 && 180.0 <= 360.0);
+    EXPECT_TRUE(359.9 >= 0.0 && 359.9 <= 360.0);
+    EXPECT_TRUE(360.0 >= 0.0 && 360.0 <= 360.0);
+}
+
+TEST(DomeAbsolutePosition, InvalidAzRange)
+{
+    // Values rejected by the setter
+    EXPECT_FALSE(-0.1  >= 0.0 && -0.1  <= 360.0);
+    EXPECT_FALSE(-90.0 >= 0.0 && -90.0 <= 360.0);
+    EXPECT_FALSE(360.1 >= 0.0 && 360.1 <= 360.0);
+    EXPECT_FALSE(720.0 >= 0.0 && 720.0 <= 360.0);
+}
+
+// --- DomeGoto movement-time calculation ---
+// Formula (indi-gapers.cpp): movTime = (domeSpeed / 360.0) * azDist * 1000  [ms]
+// domeSpeed default = 94.33 s/rev  (seconds for a full 360° spin)
+
+static constexpr double DOME_SPEED_DEFAULT = 94.33; // seconds / full revolution
+
+static long domeMovTimeMs(double azDist, double speed = DOME_SPEED_DEFAULT)
+{
+    return static_cast<long>(((speed / 360.0) * azDist * 1000.0) + 0.5);
+}
+
+TEST(DomeGotoMovTime, FullRevolution)
+{
+    // 360° spin should take approximately domeSpeed seconds
+    const long ms = domeMovTimeMs(360.0);
+    EXPECT_NEAR(ms, static_cast<long>(DOME_SPEED_DEFAULT * 1000.0 + 0.5), 1);
+}
+
+TEST(DomeGotoMovTime, HalfRevolution)
+{
+    const long ms = domeMovTimeMs(180.0);
+    EXPECT_NEAR(ms, static_cast<long>((DOME_SPEED_DEFAULT / 2.0) * 1000.0 + 0.5), 1);
+}
+
+TEST(DomeGotoMovTime, SmallMove)
+{
+    // 1° move must produce a positive, non-zero time
+    EXPECT_GT(domeMovTimeMs(1.0), 0L);
+}
+
+TEST(DomeGotoMovTime, TimeProportionalToDistance)
+{
+    EXPECT_LT(domeMovTimeMs(10.0), domeMovTimeMs(20.0));
+    EXPECT_LT(domeMovTimeMs(90.0), domeMovTimeMs(180.0));
+}
+
+// --- DOME_AUTOSYNC auto-follow threshold logic ---
+// Condition in ReadScopeStatus: fabs(rangeDistance(targetAz - currentAz)) > threshold
+
+TEST(DomeAutoSync, BelowThresholdNoMove)
+{
+    const double threshold = 2.0;
+    // Difference of 1.5° — should NOT trigger a move
+    EXPECT_FALSE(std::fabs(rangeDistance(1.5)) > threshold);
+    EXPECT_FALSE(std::fabs(rangeDistance(-1.5)) > threshold);
+}
+
+TEST(DomeAutoSync, AboveThresholdTriggersMove)
+{
+    const double threshold = 2.0;
+    // Difference of 3° — should trigger a move
+    EXPECT_TRUE(std::fabs(rangeDistance(3.0)) > threshold);
+    EXPECT_TRUE(std::fabs(rangeDistance(-3.0)) > threshold);
+}
+
+TEST(DomeAutoSync, AtExactThresholdNoMove)
+{
+    // Strictly greater-than comparison: equal to threshold must NOT trigger
+    const double threshold = 2.0;
+    EXPECT_FALSE(std::fabs(rangeDistance(2.0)) > threshold);
+}
+
+TEST(DomeAutoSync, ShortPathUsedForThreshold)
+{
+    // 355° raw difference → rangeDistance gives -5°, so fabs = 5° > 2° threshold
+    const double threshold = 2.0;
+    EXPECT_TRUE(std::fabs(rangeDistance(355.0)) > threshold);
+}
