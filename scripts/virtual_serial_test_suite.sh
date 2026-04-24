@@ -77,6 +77,55 @@ assert_equals() {
   fi
 }
 
+get_prop_value() {
+  local query="$1"
+  indi_getprop -t 2 "$query" 2>/dev/null | awk -F= 'NR==1 {print $2}'
+}
+
+assert_prop_exists() {
+  local query="$1"
+  local label="$2"
+  if wait_for_prop "$query" 5; then
+    echo "[PASS] $label exists"
+  else
+    echo "[FAIL] $label missing ($query)"
+    return 1
+  fi
+}
+
+assert_state_not_alert() {
+  local state_query="$1"
+  local label="$2"
+  local state
+  state="$(get_prop_value "$state_query")"
+  if [[ "$state" == "Alert" ]]; then
+    echo "[FAIL] $label state is Alert"
+    return 1
+  fi
+  if [[ -z "$state" ]]; then
+    echo "[FAIL] $label state is empty"
+    return 1
+  fi
+  echo "[PASS] $label state: $state"
+}
+
+assert_numeric_close() {
+  local expected="$1"
+  local got="$2"
+  local tol="${3:-0.01}"
+  local label="$4"
+  if [[ -z "$got" ]]; then
+    echo "[FAIL] $label: empty value"
+    return 1
+  fi
+  if awk -v e="$expected" -v g="$got" -v t="$tol" 'BEGIN { d=e-g; if (d<0) d=-d; exit !(d<=t) }'; then
+    echo "[PASS] $label: $got"
+  else
+    echo "[FAIL] $label: expected ~$expected, got '$got'"
+    return 1
+  fi
+}
+
 # Create PTY pair for virtual serial testing
 socat -d -d pty,raw,echo=0 pty,raw,echo=0 >"$SOCAT_LOG" 2>&1 &
 SOCAT_PID=$!
@@ -123,7 +172,55 @@ sleep 1
 STATE_SIM="$(read_state)"
 assert_equals "Ok" "$STATE_SIM" "Simulation connect"
 
-# Test 2: virtual serial real-mode should be handled by INDI (Alert or Ok)
+# Test 2: custom properties availability + get/set (no config save)
+assert_prop_exists "GAPers Telescope.EQUATORIAL_COORD.RA" "EQUATORIAL_COORD.RA"
+assert_prop_exists "GAPers Telescope.EQUATORIAL_COORD.DEC" "EQUATORIAL_COORD.DEC"
+assert_prop_exists "GAPers Telescope.ALTAZ_COORD.ALT" "ALTAZ_COORD.ALT"
+assert_prop_exists "GAPers Telescope.ALTAZ_COORD.AZ" "ALTAZ_COORD.AZ"
+assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_APERTURE" "TELESCOPE_INFO.TELESCOPE_APERTURE"
+assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_FOCAL_LENGTH" "TELESCOPE_INFO.TELESCOPE_FOCAL_LENGTH"
+assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.GUIDER_APERTURE" "TELESCOPE_INFO.GUIDER_APERTURE"
+assert_prop_exists "GAPers Telescope.TELESCOPE_INFO.GUIDER_FOCAL_LENGTH" "TELESCOPE_INFO.GUIDER_FOCAL_LENGTH"
+assert_prop_exists "GAPers Telescope.DOME_MOVEMENT.AUTO" "DOME_MOVEMENT.AUTO"
+assert_prop_exists "GAPers Telescope.DOME_MOVEMENT.MANUAL" "DOME_MOVEMENT.MANUAL"
+assert_prop_exists "GAPers Telescope.DOME_AZIMUTH.AZ" "DOME_AZIMUTH.AZ"
+assert_prop_exists "GAPers Telescope.DOME_ON_COORD_SET.SLEW" "DOME_ON_COORD_SET.SLEW"
+assert_prop_exists "GAPers Telescope.DOME_ON_COORD_SET.SYNC" "DOME_ON_COORD_SET.SYNC"
+assert_prop_exists "GAPers Telescope.DOME_SPEED.PERIOD" "DOME_SPEED.PERIOD"
+assert_prop_exists "GAPers Telescope.DOME_THRESHOLD.THRESHOLD" "DOME_THRESHOLD.THRESHOLD"
+
+# Force manual dome mode so azimuth writes are accepted.
+indi_setprop "GAPers Telescope.DOME_MOVEMENT.MANUAL=On"
+
+indi_setprop "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_APERTURE=381.0;TELESCOPE_FOCAL_LENGTH=2001.0;GUIDER_APERTURE=50.0;GUIDER_FOCAL_LENGTH=240.0"
+assert_numeric_close 381.0 "$(get_prop_value "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_APERTURE")" 0.01 "Set TELESCOPE_APERTURE"
+assert_numeric_close 2001.0 "$(get_prop_value "GAPers Telescope.TELESCOPE_INFO.TELESCOPE_FOCAL_LENGTH")" 0.01 "Set TELESCOPE_FOCAL_LENGTH"
+assert_numeric_close 50.0 "$(get_prop_value "GAPers Telescope.TELESCOPE_INFO.GUIDER_APERTURE")" 0.01 "Set GUIDER_APERTURE"
+assert_numeric_close 240.0 "$(get_prop_value "GAPers Telescope.TELESCOPE_INFO.GUIDER_FOCAL_LENGTH")" 0.01 "Set GUIDER_FOCAL_LENGTH"
+assert_state_not_alert "GAPers Telescope.TELESCOPE_INFO._STATE" "TELESCOPE_INFO"
+
+indi_setprop "GAPers Telescope.DOME_ON_COORD_SET.SYNC=On"
+assert_equals "On" "$(get_prop_value "GAPers Telescope.DOME_ON_COORD_SET.SYNC")" "Set DOME_ON_COORD_SET.SYNC"
+assert_state_not_alert "GAPers Telescope.DOME_ON_COORD_SET._STATE" "DOME_ON_COORD_SET"
+
+indi_setprop "GAPers Telescope.DOME_SPEED.PERIOD=100.0"
+assert_numeric_close 100.0 "$(get_prop_value "GAPers Telescope.DOME_SPEED.PERIOD")" 0.01 "Set DOME_SPEED.PERIOD"
+assert_state_not_alert "GAPers Telescope.DOME_SPEED._STATE" "DOME_SPEED"
+
+indi_setprop "GAPers Telescope.DOME_THRESHOLD.THRESHOLD=3.5"
+assert_numeric_close 3.5 "$(get_prop_value "GAPers Telescope.DOME_THRESHOLD.THRESHOLD")" 0.01 "Set DOME_THRESHOLD.THRESHOLD"
+assert_state_not_alert "GAPers Telescope.DOME_THRESHOLD._STATE" "DOME_THRESHOLD"
+
+indi_setprop "GAPers Telescope.DOME_AZIMUTH.AZ=123.0"
+assert_numeric_close 123.0 "$(get_prop_value "GAPers Telescope.DOME_AZIMUTH.AZ")" 0.5 "Set DOME_AZIMUTH.AZ"
+assert_state_not_alert "GAPers Telescope.DOME_AZIMUTH._STATE" "DOME_AZIMUTH"
+
+# Keep ON_COORD_SET in SYNC and issue an initial sync through EQUATORIAL_COORD.
+indi_setprop "GAPers Telescope.ON_COORD_SET.SYNC=On"
+indi_setprop "GAPers Telescope.EQUATORIAL_COORD.RA=12.0;DEC=45.0"
+assert_state_not_alert "GAPers Telescope.EQUATORIAL_COORD._STATE" "EQUATORIAL_COORD"
+
+# Test 3: virtual serial real-mode should be handled by INDI (Alert or Ok)
 indi_setprop "GAPers Telescope.CONNECTION.DISCONNECT=On"
 indi_setprop "GAPers Telescope.DEVICE_AUTO_SEARCH.INDI_DISABLED=On"
 indi_setprop "GAPers Telescope.SIMULATION.DISABLE=On"

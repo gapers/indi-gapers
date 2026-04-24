@@ -821,6 +821,8 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       }
       domeAzThresholdNP.s = IPS_OK;
       IDSetNumber(&domeAzThresholdNP, NULL);
+      saveConfig(true, domeAzThresholdNP.name);
+      return true;
     } else if(strcmp(name,"DOME_SPEED")==0) {
       for (int x=0; x<n; x++) {
         if (!strcmp(names[x], "PERIOD")) {
@@ -829,6 +831,8 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       }
       domeSpeedNP.s = IPS_OK;
       IDSetNumber(&domeSpeedNP, NULL);
+      saveConfig(true, domeSpeedNP.name);
+      return true;
     } else if(strcmp(name,"DOME_AZIMUTH")==0) {
       auto domeAutoSw = IUFindSwitch(&domesyncSP, "AUTO");
       if (domeAutoSw != nullptr && domeAutoSw->s == ISS_ON) {
