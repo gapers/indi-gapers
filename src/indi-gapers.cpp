@@ -107,6 +107,7 @@ GapersScope::GapersScope()
   currentRA  = 0;
   currentDEC = 90;
   initialSyncCompleted = false;
+  lastEq2kState = IPS_IDLE;
 
   // This mount is controlled only via serial PLC link.
   setTelescopeConnection(CONNECTION_SERIAL);
@@ -348,6 +349,7 @@ bool GapersScope::Goto(double ra, double dec)
 
 
     // Get movement start time (plus 5 seconds, since start is delayed of that amount by PLC)
+    // Do not remove the 5 seconds delay since it is needed to correctly emulate PLC behaviour.
     movementStart = time(NULL) + 5;
 
     // Mark state as slewing
@@ -372,7 +374,14 @@ bool GapersScope::Goto(double ra, double dec)
 
   char raDistStr[64];
   fs_sexa(raDistStr, raDist, 2, 3600);
-  DEBUGF(INDI::Logger::DBG_SESSION, "RA dist: %s RA steps (corrected): %ld", raDistStr, raMovement.steps);
+    const double raDistArcsec = fabs(raDist) * 3600.0;
+    const double raDistTimeSec = raDistArcsec / 15.0;
+    DEBUGF(INDI::Logger::DBG_SESSION,
+      "RA dist: %s deg (%.3f arcsec, %.3f s RA-time) RA steps (corrected): %ld",
+      raDistStr,
+      raDistArcsec,
+      raDistTimeSec,
+      raMovement.steps);
   char decDistStr[64];
   fs_sexa(decDistStr, decDist, 2, 3600);
   DEBUGF(INDI::Logger::DBG_SESSION, "DEC dist: %s DEC steps (uncorrected): %ld", decDistStr, decMovement.steps);
@@ -461,13 +470,12 @@ bool GapersScope::Abort()
     // Freeze simulated position at the abort instant.
     const double elapsed = difftime(time(NULL), movementStart);
     if (elapsed > 0) {
-      if (elapsed < raMovement.time && raMovement.time > 0) {
-        const double offset = (raMovement.angle * elapsed) / raMovement.time;
-        currentRA = targetRA + ((raMovement.angle - offset) / 15.0);
-      }
-      if (elapsed < decMovement.time && decMovement.time > 0) {
-        const double offset = (decMovement.angle * elapsed) / decMovement.time;
-        currentDEC = targetDEC + (decMovement.angle - offset);
+      const double totalSlewTime = (raMovement.time > decMovement.time) ? raMovement.time : decMovement.time;
+      if (totalSlewTime > 0) {
+        const double clampedElapsed = (elapsed < totalSlewTime) ? elapsed : totalSlewTime;
+        const double fraction = clampedElapsed / totalSlewTime;
+        currentRA = targetRA + (raMovement.angle * (1.0 - fraction) / 15.0);
+        currentDEC = targetDEC + (decMovement.angle * (1.0 - fraction));
       }
     }
   } else if (TrackState == SCOPE_SLEWING && !isSimulation()) {
@@ -553,31 +561,30 @@ bool GapersScope::ReadScopeStatus()
   switch (TrackState)
   {
     case SCOPE_SLEWING:
+    {
       time_t currentTime;
       time(&currentTime);
-      double offset;
       double elapsed;
       elapsed = difftime(currentTime, movementStart);
       if (elapsed > 0) {
-        // interpolate RA position
-        if (elapsed < raMovement.time) {
-          offset = ( raMovement.angle * elapsed ) / raMovement.time;
-          currentRA = targetRA + ((raMovement.angle - offset)/15.0);
-        }
-        if (elapsed < decMovement.time) {
-          offset = ( decMovement.angle * elapsed ) / decMovement.time;
-          currentDEC = targetDEC + ( decMovement.angle - offset );
+        const double totalSlewTime = (raMovement.time > decMovement.time) ? raMovement.time : decMovement.time;
+        if (totalSlewTime > 0) {
+          const double clampedElapsed = (elapsed < totalSlewTime) ? elapsed : totalSlewTime;
+          const double fraction = clampedElapsed / totalSlewTime;
+          currentRA = targetRA + (raMovement.angle * (1.0 - fraction) / 15.0);
+          currentDEC = targetDEC + (decMovement.angle * (1.0 - fraction));
         }
       }
-      if (isSimulation() && (elapsed >= raMovement.time) && (elapsed >= decMovement.time)) {
+      const double totalSlewTime = (raMovement.time > decMovement.time) ? raMovement.time : decMovement.time;
+      if (isSimulation() && (elapsed >= totalSlewTime)) {
         currentRA = targetRA;
         currentDEC = targetDEC;
-        // Let's set state to TRACKING
         TrackState = SCOPE_TRACKING;
         DEBUG(INDI::Logger::DBG_SESSION, "Telescope slew is complete. Tracking...");
       }
       NewRaDec(currentRA, currentDEC);
       break;
+    }
     default:
       break;
   }
@@ -843,10 +850,14 @@ void GapersScope::NewRaDec(double ra,double dec) {
       break;
   }
 
+  // Publish EOD/JNow first (base telescope property used by many clients).
+  // Then derive J2000 from the effective EOD values so both streams stay aligned.
+  INDI::Telescope::NewRaDec(ra, dec);
+
   ln_equ_posn jnow, j2k;
 
-  jnow.ra = ra * 15.0;
-  jnow.dec = dec;
+  jnow.ra = EqNP[AXIS_RA].getValue() * 15.0;
+  jnow.dec = EqNP[AXIS_DE].getValue();
   ln_get_equ_prec2(&jnow, ln_get_julian_from_sys(), JD2000, &j2k);
   j2k.ra /= 15.0;
 
@@ -857,7 +868,6 @@ void GapersScope::NewRaDec(double ra,double dec) {
     lastEq2kState = Eq2kNP.s;
     IDSetNumber(&Eq2kNP, NULL);
   }
-  INDI::Telescope::NewRaDec(ra, dec);
 }
 
 bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n) {
@@ -936,11 +946,13 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       }
       domeAzNP.s = IPS_OK;
       IDSetNumber(&domeAzNP, NULL);
-    } else if(strcmp(name,"EQUATORIAL_COORD")==0) {
-      //  this is for us, and it is a goto
+    } else if(strcmp(name,"EQUATORIAL_COORD")==0 || strcmp(name,"EQUATORIAL_EOD_COORD")==0) {
+      // Handle both J2000 and JNow writes through the same path to keep
+      // behaviour consistent when users alternate between the two properties.
       bool rc=false;
       double ra=-1;
       double dec=-100;
+      const bool inputIsJ2000 = (strcmp(name, "EQUATORIAL_COORD") == 0);
 
       for (int x=0; x<n; x++)
       {
@@ -951,13 +963,15 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         }
       }
       if ((ra>=0)&&(ra<=24)&&(dec>=-90)&&(dec<=90)) {
-        // Convert coordinates to JNOW
-        ln_equ_posn jnow,j2k;
-        j2k.ra = ra*15.0;
-        j2k.dec = dec;
-        ln_get_equ_prec2(&j2k, JD2000, ln_get_julian_from_sys(), &jnow);
-        ra = jnow.ra/15.0;
-        dec = jnow.dec;
+        if (inputIsJ2000) {
+          // Convert J2000 input coordinates to JNow before motion handling.
+          ln_equ_posn jnow, j2k;
+          j2k.ra = ra * 15.0;
+          j2k.dec = dec;
+          ln_get_equ_prec2(&j2k, JD2000, ln_get_julian_from_sys(), &jnow);
+          ra = jnow.ra / 15.0;
+          dec = jnow.dec;
+        }
         // Check if it is already parked.
         if (CanPark()) {
           if (isParked()) {
