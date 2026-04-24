@@ -108,9 +108,12 @@ GapersScope::GapersScope()
 
   // Mount does not support parking facilities.
   SetParkDataType(PARK_NONE);
-  
+
+  // Default polling period (used when no saved config exists).
+  setDefaultPollingPeriod(250);
+
   // Set telescope capabilities
-  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0); 
+  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0);
 
 }
 /**************************************************************************************
@@ -762,7 +765,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
       IDSetNumber(&domeAzThresholdNP, NULL);
     } else if(strcmp(name,"DOME_SPEED")==0) {
       for (int x=0; x<n; x++) {
-        if (!strcmp(names[x], "SPEED")) {
+        if (!strcmp(names[x], "PERIOD")) {
           domeSpeedN[0].value = values[x];
         }
       }
@@ -777,7 +780,7 @@ bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[
         return true;
       }
       for (int x=0; x<n; x++) {
-        if (!strcmp(names[x], "AZIMUTH")) {
+        if (!strcmp(names[x], "AZ")) {
           az = values[x];
         }
       }
