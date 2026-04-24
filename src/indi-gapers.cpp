@@ -127,7 +127,7 @@ bool GapersScope::initProperties()
   // Default mount type: Equatorial German Mount.
   if (!MountTypeSP.load()) {
     MountTypeSP.reset();
-    MountTypeSP[MOUNT_EQ_GEM].setState(ISS_ON);
+    MountTypeSP[MOUNT_EQ_FORK].setState(ISS_ON);
   }
 
   // Site defaults for Osservatorio G.Abetti (used only if no saved config exists).
@@ -443,6 +443,11 @@ bool GapersScope::DomeSync(double az) {
 ***************************************************************************************/
 bool GapersScope::Abort()
 {
+  // Cannot abort if we are not currently moving.
+  if (TrackState != SCOPE_SLEWING) {
+    DEBUG(INDI::Logger::DBG_SESSION, "Cannot abort since mount is not slewing.");
+    return false;
+  } 
   if (TrackState == SCOPE_SLEWING && isSimulation()) {
     // Freeze simulated position at the abort instant.
     const double elapsed = difftime(time(NULL), movementStart);
