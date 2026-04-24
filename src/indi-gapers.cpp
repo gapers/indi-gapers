@@ -27,6 +27,17 @@ Copyright (C) 2014 Maurizio Serrazanetti
 
 const char *DOME_TAB = "Cupola";
 
+namespace
+{
+constexpr double GABETTI_LATITUDE_DEG = 44.63571;
+constexpr double GABETTI_LONGITUDE_DEG_EAST = 11.18273;
+constexpr double GABETTI_ELEVATION_M = 24.0;
+constexpr double OTA_APERTURE_MM = 380.0;
+constexpr double OTA_FOCAL_LENGTH_MM = 2000.0;
+constexpr double GUIDER_APERTURE_MM = 0.0;
+constexpr double GUIDER_FOCAL_LENGTH_MM = 0.0;
+}
+
 static std::unique_ptr<GapersScope> gapersScope(new GapersScope());
 
 /**************************************************************************************
@@ -91,6 +102,12 @@ GapersScope::GapersScope()
   currentRA  = 0;
   currentDEC = 90;
   initialSyncCompleted = false;
+
+  // This mount is controlled only via serial PLC link.
+  setTelescopeConnection(CONNECTION_SERIAL);
+
+  // Mount does not support parking facilities.
+  SetParkDataType(PARK_NONE);
   
   // Set telescope capabilities
   SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0); 
@@ -103,6 +120,28 @@ bool GapersScope::initProperties()
 {
   // ALWAYS call initProperties() of parent first
   INDI::Telescope::initProperties();
+
+  // Default mount type: Equatorial German Mount.
+  if (!MountTypeSP.load()) {
+    MountTypeSP.reset();
+    MountTypeSP[MOUNT_EQ_GEM].setState(ISS_ON);
+  }
+
+  // Site defaults for Osservatorio G.Abetti (used only if no saved config exists).
+  if (!LocationNP.load()) {
+    LocationNP[LOCATION_LATITUDE].setValue(GABETTI_LATITUDE_DEG);
+    LocationNP[LOCATION_LONGITUDE].setValue(GABETTI_LONGITUDE_DEG_EAST);
+    LocationNP[LOCATION_ELEVATION].setValue(GABETTI_ELEVATION_M);
+    updateObserverLocation(GABETTI_LATITUDE_DEG, GABETTI_LONGITUDE_DEG_EAST, GABETTI_ELEVATION_M);
+  }
+
+  // Default ON_COORD_SET to SYNC if not already configured.
+  if (!CoordSP.load()) {
+    CoordSP.reset();
+    auto *syncSw = CoordSP.findWidgetByName("SYNC");
+    if (syncSw != nullptr)
+      syncSw->setState(ISS_ON);
+  }
 
   // Add J2K Coordinates handler
   IUFillNumber(&Eq2kN[0], "RA", "RA (hh:mm:ss)", "%010.6m", 0, 24, 0, 0);
@@ -118,6 +157,13 @@ bool GapersScope::initProperties()
   IUFillNumber(&AaN[0], "ALT", "Alt (dd:mm:ss)", "%010.6m", -90, 90, 0, 0);
   IUFillNumber(&AaN[1], "AZ", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
   IUFillNumberVector(&AaNP, AaN, 2, getDefaultName(), "ALTAZ_COORD", "AltAzimuthal Coordinates", MAIN_CONTROL_TAB, IP_RO, 60, IPS_IDLE);
+
+  // Optical defaults: OTA 380/2000mm, no guider.
+  IUFillNumber(&telescopeInfoN[0], "TELESCOPE_APERTURE", "Telescope aperture (mm)", "%7.2f", 0, 2000, 0, OTA_APERTURE_MM);
+  IUFillNumber(&telescopeInfoN[1], "TELESCOPE_FOCAL_LENGTH", "Telescope focal length (mm)", "%7.2f", 0, 10000, 0, OTA_FOCAL_LENGTH_MM);
+  IUFillNumber(&telescopeInfoN[2], "GUIDER_APERTURE", "Guider aperture (mm)", "%7.2f", 0, 2000, 0, GUIDER_APERTURE_MM);
+  IUFillNumber(&telescopeInfoN[3], "GUIDER_FOCAL_LENGTH", "Guider focal length (mm)", "%7.2f", 0, 10000, 0, GUIDER_FOCAL_LENGTH_MM);
+  IUFillNumberVector(&telescopeInfoNP, telescopeInfoN, 4, getDefaultName(), "TELESCOPE_INFO", "Telescope Info", MAIN_CONTROL_TAB, IP_RW, 60, IPS_IDLE);
 
   // Dome azimuth and slew mode
   IUFillNumber(&domeAzN[0], "AZ", "Az (dd:mm:ss)", "%010.6m", 0, 360, 0, 0);
@@ -186,6 +232,7 @@ bool GapersScope::Handshake() {
   cmdEchoTimeout = 0;
 
   // initialize telescope and dome status
+  // A serial reconnect implies a physical reset of the mount: require a new sync.
   initialSyncCompleted = false;
   TrackState = SCOPE_TRACKING;
   DomeTrackState = DOME_IDLE;
@@ -583,6 +630,8 @@ void GapersScope::ISGetProperties (const char *dev) {
     defineProperty(&Eq2kNP);
     // Add AltAzimuthal coord
     defineProperty(&AaNP);
+    // Add optical information
+    defineProperty(&telescopeInfoNP);
     // Add dome properties
     defineProperty(&domesyncSP);
     defineProperty(&domeAzNP);
@@ -597,10 +646,18 @@ bool GapersScope::updateProperties()
   bool rc = true;
   rc = INDI::Telescope::updateProperties();
 
+  // Keep unsupported manual motion controls out of client UI.
+  deleteProperty(MovementNSSP);
+  deleteProperty(MovementWESP);
+  deleteProperty(ReverseMovementSP);
+  deleteProperty(MotionControlModeTP);
+  deleteProperty(LockAxisSP);
+
   if(isConnected())
   {
     defineProperty(&Eq2kNP);
     defineProperty(&AaNP);
+    defineProperty(&telescopeInfoNP);
     defineProperty(&domesyncSP);
     defineProperty(&domeAzNP);
     defineProperty(&domeCoordSP);
@@ -611,6 +668,7 @@ bool GapersScope::updateProperties()
   {
     deleteProperty(Eq2kNP.name);
     deleteProperty(AaNP.name);
+    deleteProperty(telescopeInfoNP.name);
     deleteProperty(domesyncSP.name);
     deleteProperty(domeAzNP.name);
     deleteProperty(domeCoordSP.name);
@@ -622,6 +680,7 @@ bool GapersScope::updateProperties()
 }
 
 bool GapersScope::saveConfigItems(FILE *fp) {
+  IUSaveConfigNumber(fp, &telescopeInfoNP);
   IUSaveConfigSwitch(fp, &domesyncSP);
   IUSaveConfigSwitch(fp, &domeCoordSP);
   IUSaveConfigNumber(fp, &domeSpeedNP);
@@ -683,6 +742,14 @@ void GapersScope::NewRaDec(double ra,double dec) {
 bool GapersScope::ISNewNumber (const char *dev, const char *name, double values[], char *names[], int n) {
   //  first check if it's for our device
   if(strcmp(dev,getDefaultName())==0) {
+    if(strcmp(name, "TELESCOPE_INFO") == 0) {
+      IUUpdateNumber(&telescopeInfoNP, values, names, n);
+      telescopeInfoNP.s = IPS_OK;
+      IDSetNumber(&telescopeInfoNP, NULL);
+      saveConfig(true, telescopeInfoNP.name);
+      return true;
+    }
+
     bool rc=false;
     double az=-1;
     if(strcmp(name,"DOME_THRESHOLD")==0) {

@@ -40,6 +40,10 @@ protected:
   INumberVectorProperty AaNP;
   INumber AaN[2];
 
+  // Optical information (OTA + guide scope)
+  INumberVectorProperty telescopeInfoNP;
+  INumber telescopeInfoN[4];
+
   // Dome properties
   ISwitchVectorProperty domesyncSP;
   ISwitch domesyncS[2];
