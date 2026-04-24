@@ -113,7 +113,7 @@ GapersScope::GapersScope()
   setDefaultPollingPeriod(250);
 
   // Set telescope capabilities
-  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO, 0);
+  SetTelescopeCapability(TELESCOPE_CAN_SYNC | TELESCOPE_HAS_TIME | TELESCOPE_HAS_LOCATION | TELESCOPE_CAN_GOTO | TELESCOPE_CAN_ABORT, 0);
 
 }
 /**************************************************************************************
@@ -443,8 +443,41 @@ bool GapersScope::DomeSync(double az) {
 ***************************************************************************************/
 bool GapersScope::Abort()
 {
+  if (TrackState == SCOPE_SLEWING && isSimulation()) {
+    // Freeze simulated position at the abort instant.
+    const double elapsed = difftime(time(NULL), movementStart);
+    if (elapsed > 0) {
+      if (elapsed < raMovement.time && raMovement.time > 0) {
+        const double offset = (raMovement.angle * elapsed) / raMovement.time;
+        currentRA = targetRA + ((raMovement.angle - offset) / 15.0);
+      }
+      if (elapsed < decMovement.time && decMovement.time > 0) {
+        const double offset = (decMovement.angle * elapsed) / decMovement.time;
+        currentDEC = targetDEC + (decMovement.angle - offset);
+      }
+    }
+  } else if (TrackState == SCOPE_SLEWING && !isSimulation()) {
+    // Send stop motors with ramp to both telescope axes.
+    SendCommand('1', 2, 1);
+    SendCommand('2', 2, 1);
+  }
+
+  raIsMoving = false;
+  decIsMoving = false;
+  initialSyncCompleted = false;
   TrackState = SCOPE_IDLE;
-  DEBUG(INDI::Logger::DBG_SESSION, "Simple Scope stopped.");
+
+  // After abort, require a fresh sync exactly like at startup.
+  CoordSP.reset();
+  auto *syncSw = CoordSP.findWidgetByName("SYNC");
+  if (syncSw != nullptr)
+    syncSw->setState(ISS_ON);
+  CoordSP.setState(IPS_OK);
+  CoordSP.apply("Abort executed: mount marked as unsynchronized. Please SYNC before SLEW/TRACK.");
+
+  // Updates both J2000 (Eq2kNP / EQUATORIAL_COORD) and parent EOD/JNow coords.
+  NewRaDec(currentRA, currentDEC);
+  DEBUG(INDI::Logger::DBG_SESSION, "Gapers Scope stopped.");
   return true;
 }
 /**************************************************************************************
